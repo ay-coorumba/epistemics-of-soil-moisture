@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Epistemics of Soil Moisture</title>
+<style>
+  :root{--bg:#060a12;--ink:#eaf2f7;--dim:#9fb4c4;--panel:rgba(14,24,38,.72);
+        --measured:#46c78a;--averaged:#39d0c8;--inferred:#f2b24a;--box:#e368b8}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,"Noto Sans",sans-serif;line-height:1.5}
+  a{color:#6fd0ff;text-decoration:none}
+  #sky{position:fixed;inset:0;z-index:0;display:block}
+  .content{position:relative;z-index:1}
+  .hero{max-width:900px;margin:0 auto;padding:15vh 24px 7vh;text-align:center}
+  .kick{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#6fd0ff;margin:0 0 18px}
+  h1{font-size:clamp(32px,6vw,62px);line-height:1.03;margin:0 0 22px;font-weight:800;letter-spacing:-1px}
+  h1 em{font-style:normal;background:linear-gradient(90deg,#6fd0ff,#46c78a,#f2b24a,#e368b8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:clamp(16px,2.3vw,20px);color:#c3d2de;max-width:720px;margin:0 auto}
+  .lede b{color:#fff}
+  .arc{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:34px 0 6px}
+  .arc .op{font-size:11px;color:var(--dim);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:4px 11px;display:flex;align-items:center;gap:6px}
+  .arc .op i{width:9px;height:9px;border-radius:50%}
+  .scrollcue{margin-top:38px;font-size:13px;color:var(--dim)}
+  .scrollcue span{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+  main{max-width:1180px;margin:0 auto;padding:0 20px 40px}
+  .act{margin:44px 0 10px}
+  .act .n{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;font-weight:700}
+  .act h2{font-size:clamp(20px,3vw,26px);margin:4px 0 2px;font-weight:700}
+  .act p{margin:0 0 16px;color:var(--dim);font-size:14px;max-width:760px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .card{position:relative;background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px;
+        backdrop-filter:blur(8px);transition:transform .18s,border-color .18s,box-shadow .18s;overflow:hidden;display:flex;flex-direction:column}
+  .card:hover{transform:translateY(-4px);border-color:var(--ac);box-shadow:0 12px 34px rgba(0,0,0,.5)}
+  .card .top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .card .glyph{width:44px;height:44px;flex:0 0 auto;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center}
+  .card .num{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .card h3{margin:0;font-size:18px;font-weight:700}
+  .card .thesis{color:#c3d2de;font-size:13.5px;margin:2px 0 14px;flex:1}
+  .card .go{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ac)}
+  .card .go .alt{color:var(--dim);font-weight:400;font-size:12px}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ac);opacity:.85}
+  footer{max-width:1180px;margin:0 auto;padding:30px 24px 70px;color:var(--dim);font-size:12.5px;line-height:1.7;border-top:1px solid rgba(255,255,255,.1)}
+  footer b{color:var(--ink)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0}
+  .legend span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim)}
+  .legend i{width:11px;height:11px;border-radius:3px}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="content">
+
+  <section class="hero">
+    <p class="kick">Kaswari AgTech · A collection · built with Fable 5 · grounded via Consensus</p>
+    <h1><em>Kaswari AgTech</em><span style="display:block;font-size:.52em;font-weight:700;color:#c3d2de;margin-top:12px;letter-spacing:-.01em">The Epistemics of Soil Moisture</span></h1>
+    <p class="lede">A satellite soil-moisture value looks like a measurement. It is really a <b>skilled inference with a long pedigree</b> — averaged over kilometres, corrected by models, drawn through black boxes, sampled once every few days, and “validated” against a reference that measures something else entirely. This is twelve ways of looking at one number.</p>
+    <div class="arc">
+      <span class="op"><i style="background:var(--measured)"></i>measured</span>
+      <span class="op"><i style="background:var(--averaged)"></i>averaged</span>
+      <span class="op"><i style="background:var(--inferred)"></i>inferred</span>
+      <span class="op"><i style="background:var(--box)"></i>black box</span>
+    </div>
+    <p class="scrollcue"><span>↓</span> follow the argument</p>
+  </section>
+
+  <main id="acts"></main>
+
+  <footer>
+    <div class="legend">
+      <span><i style="background:var(--measured)"></i>measured</span>
+      <span><i style="background:var(--averaged)"></i>averaged</span>
+      <span><i style="background:var(--inferred)"></i>inferred / modelled</span>
+      <span><i style="background:var(--box)"></i>black box</span>
+    </div>
+    <p>Each piece is a standalone, self-contained page — open any of them directly. The links here are relative, so keep the files together in one folder for navigation to work. Interactive scenes need a modern browser; the 3D pieces stream terrain and satellite imagery live and fall back gracefully offline.</p>
+    <p><b>On honesty:</b> the collection’s numbers — error budgets, footprint sizes, national capability shares — are illustrative unless cited, chosen to convey the <i>direction</i> and <i>structure</i> of each effect rather than exact operational values. Mission facts and the retrieval physics are drawn from NASA / ESA / EUMETSAT / CAS sources and ~29 peer-reviewed papers retrieved via Consensus; the country-specific instrument details are the ones most worth re-verifying before publication. The point was never to be the operational algorithm — it was to make the <b>epistemic life of a number</b> visible.</p>
+    <p style="margin-top:14px;color:#7d95a6">Built with Claude (Fable&nbsp;5) · literature via Consensus · worked examples over Innisfail, QLD and Ayutthaya, Thailand.</p>
+  </footer>
+</div>
+
+<script>
+// ---------- data ----------
+const G={ // simple inline glyphs
+  column:'<path d="M9 6h12v20a6 3 0 0 1-12 0z" fill="none" stroke="C" stroke-width="1.6"/><path d="M9 12h12M9 18h12" stroke="C" stroke-width="1"/>',
+  chain:'<circle cx="11" cy="11" r="4" fill="none" stroke="C" stroke-width="1.6"/><circle cx="21" cy="21" r="4" fill="none" stroke="C" stroke-width="1.6"/><path d="M13.5 13.5l5 5" stroke="C" stroke-width="1.6"/>',
+  wave:'<path d="M5 20c3-9 5-9 8 0s5 9 8 0 5-9 8 0" fill="none" stroke="C" stroke-width="1.6"/>',
+  orbit:'<circle cx="16" cy="16" r="5" fill="none" stroke="C" stroke-width="1.6"/><ellipse cx="16" cy="16" rx="12" ry="5" fill="none" stroke="C" stroke-width="1.3" transform="rotate(-25 16 16)"/><circle cx="27" cy="11" r="2" fill="C"/>',
+  dag:'<circle cx="7" cy="9" r="2.2" fill="C"/><circle cx="7" cy="23" r="2.2" fill="C"/><circle cx="16" cy="16" r="2.6" fill="C"/><circle cx="26" cy="16" r="2.6" fill="none" stroke="C" stroke-width="1.6"/><path d="M9 10l5 5M9 22l5-4M18.5 16h5" stroke="C" stroke-width="1.3"/>',
+  flags:'<path d="M8 5v22M8 6h11l-2 4 2 4H8" fill="none" stroke="C" stroke-width="1.6"/><path d="M22 9v18M22 10h6l-1.4 3 1.4 3h-6" fill="none" stroke="C" stroke-width="1.3"/>',
+  bars:'<path d="M6 26V15M13 26V9M20 26V18M27 26V6" stroke="C" stroke-width="2.4"/><path d="M4 26h26" stroke="C" stroke-width="1"/>',
+  toggle:'<rect x="5" y="12" width="22" height="10" rx="5" fill="none" stroke="C" stroke-width="1.6"/><circle cx="21" cy="17" r="3.4" fill="C"/>',
+  probe:'<rect x="6" y="6" width="20" height="20" rx="3" fill="none" stroke="C" stroke-width="1.4"/><circle cx="12" cy="13" r="1.6" fill="C"/><circle cx="20" cy="19" r="1.6" fill="C"/><circle cx="16" cy="11" r="1.6" fill="C"/>',
+  play:'<circle cx="16" cy="16" r="11" fill="none" stroke="C" stroke-width="1.6"/><path d="M13 11l8 5-8 5z" fill="C"/>',
+  stars:'<circle cx="9" cy="11" r="2.4" fill="C"/><circle cx="22" cy="8" r="1.6" fill="C"/><circle cx="24" cy="20" r="2.8" fill="C"/><circle cx="13" cy="22" r="1.8" fill="C"/><path d="M9 11l13 -3M22 8l2 12M24 20l-11 2" stroke="C" stroke-width=".8" opacity=".6"/>',
+};
+const ACTS=[
+  {n:'Act I', h:'What it measures', d:'Begin with the object itself — what the five microwave products actually sense, and how a raw signal becomes a soil-moisture number.', cards:[
+    {num:'01',ac:'#6fd0ff',glyph:'column',title:'The Explainer',thesis:'What the five products measure — sensing depth, footprint, revisit — as a 3D soil column you can fly around, with a live SMAP layer.',links:[['Innisfail','soil-moisture.html'],['Ayutthaya','soil-moisture-ayutthaya.html']]},
+    {num:'02',ac:'#7fd8ff',glyph:'chain',title:'The Retrieval Chain',thesis:'Every step from brightness temperature to a number, colour-coded by where it stops being a measurement and becomes an inference or a black box.',links:[['Open','soil-moisture-annotated.html']]},
+  ]},
+  {n:'Act II', h:'How it is captured', d:'Drop below the retrieval into the physics and geometry of capture — the signal’s journey up to orbit, and when any place is actually seen.', cards:[
+    {num:'03',ac:'#f2b24a',glyph:'wave',title:'The Signal’s Journey',thesis:'Follow one microwave signal from wet soil to a grid cell through eleven steps; a live meter tracks how much is still a measurement (92% → 16%).',links:[['Open','soil-moisture-capture-journey.html']]},
+    {num:'04',ac:'#56b4e9',glyph:'orbit',title:'Orbit & Swath',thesis:'Play 72 hours and watch a 1000-km swath tile the planet — why any place is seen only every 2–3 days, and everything between is interpolated.',links:[['Open','soil-moisture-orbit-swath.html']]},
+  ]},
+  {n:'Act III', h:'What it depends on', d:'Pull back to see the web of other datasets, models, and national choices standing behind a single value.', cards:[
+    {num:'05',ac:'#cc79a7',glyph:'dag',title:'The Provenance Graph',thesis:'Every dataset and model secretly feeding one SMAP number. Of ~23 inputs, exactly one directly measures the target soil.',links:[['Open','soil-moisture-provenance.html']]},
+    {num:'06',ac:'#46c78a',glyph:'flags',title:'Four Flags, Four Pipelines',thesis:'US vs Europe vs Russia vs China — four philosophies, and how ~90% of “the global record” is Western because of openness, not physics. Dual-language cards.',links:[['Open','soil-moisture-national-methods.html']]},
+    {num:'07',ac:'#e368b8',glyph:'wave',title:'The Politics of a Protected Band',thesis:'Where L-band soil moisture can’t be measured because of radio interference — a world map that turns out to track who enforces radio law, with coverage recovered by diplomacy, not physics.',links:[['Open','soil-moisture-rfi-politics.html']]},
+  ]},
+  {n:'Act IV', h:'How uncertain it is', d:'Quantify the doubt — the error budget that lands right at the mission limit, and what happens when the corrections holding it there fail.', cards:[
+    {num:'08',ac:'#4aa3d0',glyph:'bars',title:'The Uncertainty Waterfall',thesis:'The error budget: sources add in quadrature to ~0.041 m³/m³, right at the 0.04 requirement. Independence does enormous work — correlated, it hits 0.113.',links:[['Open','soil-moisture-uncertainty-waterfall.html']]},
+    {num:'09',ac:'#e0724a',glyph:'toggle',title:'Turn Off a Correction',thesis:'Break the vegetation, RFI, roughness or temperature correction and watch the error bloom exactly where physics predicts — invisible corrections made visible by their absence.',links:[['Open','soil-moisture-correction-sandbox.html']]},
+  ]},
+  {n:'Act V', h:'What “true” means', d:'Confront the reference itself — because there is no ground truth, only a differently-scaled, imperfect stand-in.', cards:[
+    {num:'10',ac:'#6fd0ff',glyph:'probe',title:'Ground Truth vs Satellite',thesis:'A probe samples a few cm³; the pixel averages 81 km². With one probe, 73% of the “validation error” is the probe failing to represent the pixel — not the satellite.',links:[['Open','soil-moisture-ground-truth.html']]},
+  ]},
+  {n:'Coda', h:'Seeing it whole', d:'Step back and take in the whole — a cinematic pass through the argument, and the peer-reviewed sky the collection is built on.', cards:[
+    {num:'11',ac:'#b98cff',glyph:'play',title:'The Fly-Through',thesis:'A narrated ~20-second cinematic tour of the retrieval chain, rendered from the 3D scene — the argument in motion.',links:[['Watch (MP4)','soil-moisture-tour.mp4'],['GIF','soil-moisture-tour.gif']]},
+    {num:'12',ac:'#ffd27a',glyph:'stars',title:'The Evidence Constellation',thesis:'~29 peer-reviewed papers as a star-map, sized by citations. Click an explainer to light up the constellation of research that grounds it.',links:[['Open','soil-moisture-evidence-constellation.html']]},
+  ]},
+];
+
+// ---------- render ----------
+function glyphSVG(name,ac){ return '<svg width="26" height="26" viewBox="0 0 32 32">'+G[name].replace(/C/g,ac)+'</svg>'; }
+const main=document.getElementById('acts');
+ACTS.forEach(a=>{
+  const sec=document.createElement('section'); sec.className='act';
+  let cards='';
+  a.cards.forEach(c=>{
+    const links=c.links.map((l,i)=>i===0?`<a class="go" href="${l[1]}">${l[0]} →</a>`:`<a class="go alt" href="${l[1]}" style="margin-left:12px">${l[0]}</a>`).join('');
+    cards+=`<div class="card" style="--ac:${c.ac}">
+      <div class="top"><div class="glyph">${glyphSVG(c.glyph,c.ac)}</div>
+        <div><div class="num">${c.num}</div><h3>${c.title}</h3></div></div>
+      <div class="thesis">${c.thesis}</div>
+      <div>${links}</div></div>`;
+  });
+  sec.innerHTML=`<div class="n">${a.n}</div><h2>${a.h}</h2><p>${a.d}</p><div class="grid">${cards}</div>`;
+  main.appendChild(sec);
+});
+
+// ---------- starfield ----------
+const sky=document.getElementById('sky'), sx=sky.getContext('2d');
+let SW,SH,stars=[];
+function initSky(){ SW=sky.width=innerWidth; SH=sky.height=innerHeight; stars=[];
+  const n=Math.min(220,Math.floor(SW*SH/9000));
+  for(let i=0;i<n;i++) stars.push({x:Math.random()*SW,y:Math.random()*SH,r:Math.random()*1.3+.2,ph:Math.random()*6.28,
+    col:Math.random()<0.12?['#6fd0ff','#46c78a','#f2b24a','#e368b8'][i%4]:'#cfe0ee'}); }
+initSky(); addEventListener('resize',initSky);
+let t0=performance.now();
+function twinkle(now){ const t=(now-t0)/1000; sx.clearRect(0,0,SW,SH);
+  // subtle vignette gradient
+  const gr=sx.createRadialGradient(SW*0.5,SH*0.3,0,SW*0.5,SH*0.3,Math.max(SW,SH)*0.8);
+  gr.addColorStop(0,'rgba(20,34,54,.5)'); gr.addColorStop(1,'rgba(6,10,18,0)'); sx.fillStyle=gr; sx.fillRect(0,0,SW,SH);
+  stars.forEach(s=>{ const a=0.35+0.5*Math.abs(Math.sin(t*0.6+s.ph)); sx.globalAlpha=a; sx.fillStyle=s.col;
+    sx.beginPath(); sx.arc(s.x,s.y,s.r,0,7); sx.fill(); });
+  sx.globalAlpha=1; requestAnimationFrame(twinkle);
+}
+requestAnimationFrame(twinkle);
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

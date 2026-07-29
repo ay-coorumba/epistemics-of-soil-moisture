@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Soil Moisture — what they measure & where the error lives</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1622;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#eaf2f7}
+  #app{position:fixed;inset:0;display:block}
+  .panel{position:fixed;top:12px;background:rgba(12,22,34,.86);border:1px solid rgba(255,255,255,.12);
+         border-radius:10px;padding:14px 16px;backdrop-filter:blur(6px);max-height:94vh;overflow:auto}
+  #hud{left:12px;width:290px}
+  #hud h1{font-size:15px;margin:0 0 2px;font-weight:600}
+  #hud .sub{font-size:11px;color:#9fb4c4;margin:0 0 12px}
+  label.sl{display:block;font-size:12px;margin:12px 0 4px;color:#cde0ee}
+  .val{color:#6fd0ff;font-weight:600}
+  input[type=range]{width:100%}
+  button.act{margin-top:12px;width:100%;padding:8px;border:0;border-radius:7px;background:#2f7fbf;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  button.act:hover{background:#3a92d8}
+  .toggle{margin-top:10px;font-size:12px;color:#cde0ee;display:flex;align-items:center;gap:7px;cursor:pointer}
+  .chips{margin-top:6px}
+  .chip{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:5px 0;border-radius:7px;
+        background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:12px}
+  .chip.off{opacity:.4}
+  .chip.sel{border-color:#6fd0ff;box-shadow:0 0 0 1px #6fd0ff inset;background:rgba(60,120,170,.18)}
+  .chip input{margin:0;cursor:pointer}
+  .chip .sw{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+  .chip .nm{font-weight:600}
+  .chip .rd{margin-left:auto;font-variant-numeric:tabular-nums;color:#8fd0ff;font-weight:600;text-align:right}
+  .chip small{display:block;color:#9fb4c4;font-weight:400;font-size:10px}
+  #log{margin-top:12px;font-size:10.5px;color:#8aa2b3;line-height:1.5;max-height:64px;overflow:auto}
+  /* right annotation panel */
+  #ann{right:12px;width:330px;display:none}
+  #ann h2{font-size:13px;margin:0 0 3px;font-weight:600}
+  #ann .who{font-size:11px;color:#9fb4c4;margin:0 0 10px}
+  .legend{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .lchip{font-size:10px;padding:3px 7px;border-radius:20px;display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05)}
+  .lchip b{font-size:11px}
+  .stage{position:relative;padding:7px 9px 7px 14px;margin:5px 0;border-radius:6px;background:rgba(255,255,255,.04);cursor:pointer;font-size:11.5px}
+  .stage:hover{background:rgba(255,255,255,.09)}
+  .stage::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:6px 0 0 6px;background:#4a5b6b}
+  .stage.avg::before{background:#39d0c8}.stage.inf::before{background:#f2b24a}.stage.box::before{background:#e368b8}
+  .stage .st{font-weight:600}
+  .stage .tag{font-size:9px;text-transform:uppercase;letter-spacing:.4px;margin-left:6px;padding:1px 5px;border-radius:4px;vertical-align:middle}
+  .stage .sd{display:block;color:#a9bccb;margin-top:2px;line-height:1.4}
+  .lad{margin-top:12px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px}
+  .lad h3{font-size:12px;margin:0 0 8px}
+  .lrow{margin:7px 0;font-size:10.5px}
+  .lrow .lh{display:flex;justify-content:space-between;margin-bottom:2px}
+  .lrow .lh b{color:#eaf2f7}
+  .track{position:relative;height:9px;border-radius:5px;background:rgba(255,255,255,.08);overflow:visible}
+  .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px}
+  .whisk{position:absolute;top:-2px;height:13px;border-left:1px solid #fff;border-right:1px solid #fff;opacity:.7}
+  .delta{font-size:10px;margin:3px 0 3px 4px;display:flex;align-items:center;gap:6px;color:#cbd}
+  .delta .db{width:18px;height:4px;border-radius:2px}
+  .note{font-size:10px;color:#8aa2b3;margin-top:10px;line-height:1.4;font-style:italic}
+  /* html overlays */
+  .lbl{position:fixed;transform:translate(-100%,-50%);font-size:11px;font-weight:600;color:#fff;
+       background:rgba(9,17,26,.82);border:1px solid rgba(120,200,255,.4);padding:3px 7px;border-radius:5px;
+       pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px #000}
+  .lbl small{display:block;font-weight:400;color:#8fd0ff;font-size:9.5px}
+  .lbl .r{color:#ffe08a}
+  .dax{position:fixed;transform:translate(-50%,-50%);font-size:10px;color:#bcd;pointer-events:none;
+       background:rgba(9,17,26,.6);padding:1px 5px;border-radius:4px;white-space:nowrap}
+  .pin{position:fixed;transform:translate(0,-50%);font-size:10.5px;font-weight:600;color:#fff;max-width:220px;
+       background:rgba(9,17,26,.9);border-left:4px solid #888;padding:4px 8px;border-radius:5px;
+       pointer-events:none;white-space:normal;line-height:1.3;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .pin small{display:block;font-weight:400;color:#b9c9d6;font-size:9.5px}
+  #hint{position:fixed;bottom:12px;left:12px;font-size:11px;color:#7d95a6;background:rgba(12,22,34,.7);padding:6px 10px;border-radius:6px}
+  #realbtn{margin-top:10px;width:100%;padding:8px;border:0;border-radius:7px;background:#3a6b4a;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  #realbtn:hover{background:#4a8a5f}
+  #real{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:440px;max-width:92vw;
+    background:rgba(10,20,30,.95);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px 16px;
+    backdrop-filter:blur(8px);display:none;z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.55)}
+  #real h2{font-size:13px;margin:0 0 4px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  #real .x{cursor:pointer;color:#9fb4c4;font-weight:400;font-size:11px}
+  #real .st{font-size:10.5px;color:#8fd0ff;margin:4px 0 8px;min-height:13px}
+  #real select{width:100%;padding:6px;border-radius:6px;background:#12222e;color:#eaf2f7;border:1px solid rgba(255,255,255,.15);font-size:12px}
+  #real .drow{display:flex;align-items:center;gap:10px;justify-content:center;margin:8px 0;font-size:12px}
+  #real .drow button{background:#25455e;color:#fff;border:0;border-radius:5px;padding:2px 10px;cursor:pointer;font-size:14px}
+  #real .imgwrap{position:relative;width:100%;aspect-ratio:1;background:#0a1420;border-radius:8px;overflow:hidden}
+  #real img{width:100%;height:100%;object-fit:cover;display:block}
+  #real .marker{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5);pointer-events:none}
+  #real .marker::after{content:"Innisfail";position:absolute;left:15px;top:-1px;font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap}
+  #real .cbar{height:10px;border-radius:5px;margin:8px 0 2px;background:linear-gradient(90deg,#8c5a2b,#c9a15a,#e8e2b0,#7fb2c4,#2b6b8c,#3b2b8c)}
+  #real .cbl{display:flex;justify-content:space-between;font-size:9.5px;color:#9fb4c4}
+  #real .rn{font-size:10px;color:#8aa2b3;margin-top:8px;line-height:1.45}
+  #real a{color:#6fd0ff}
+</style>
+</head>
+<body>
+<canvas id="app"></canvas>
+
+<div id="hud" class="panel">
+  <h1>Soil Moisture · measured, averaged, inferred</h1>
+  <p class="sub">Kaswari AgTech · Innisfail terrain · 5 microwave products · click a sensor to inspect its retrieval chain</p>
+  <div class="chips" id="chips"></div>
+  <button class="act" id="measure">◎ Take a measurement</button>
+  <label class="sl">Surface moisture <span class="val" id="wetv">35%</span></label>
+  <input type="range" id="wet" min="2" max="98" step="1" value="35">
+  <label class="sl">Depth zoom <span class="val" id="dzv">1.0×</span></label>
+  <input type="range" id="dz" min="0.5" max="3" step="0.1" value="1">
+  <div class="toggle"><input type="checkbox" id="truescale"><span>Footprints: <b id="scmode">nested (log)</b></span></div>
+  <div class="toggle"><input type="checkbox" id="annon" checked><span>Show error annotations</span></div>
+  <button id="realbtn">🛰 Load real NASA soil moisture</button>
+  <div id="log"></div>
+</div>
+
+<div id="ann" class="panel">
+  <h2>Retrieval chain</h2>
+  <p class="who" id="annwho">—</p>
+  <div class="legend">
+    <span class="lchip"><b style="color:#39d0c8">▧</b> Averaging</span>
+    <span class="lchip"><b style="color:#f2b24a">∿</b> Statistical inference</span>
+    <span class="lchip"><b style="color:#e368b8">▮</b> Black box</span>
+  </div>
+  <div class="lad" style="border-top:none;padding-top:0;margin-top:0">
+    <h3>Error ladder <span style="color:#8aa2b3;font-weight:400">· truth → delivered</span></h3>
+    <div id="ladder"></div>
+    <div class="delta"><span class="db" style="background:#39d0c8"></span><span id="dAvg">averaging</span></div>
+    <div class="delta"><span class="db" style="background:#f2b24a"></span><span id="dInf">inference + black box</span></div>
+  </div>
+  <p class="note" id="simnote">Values are simulated for illustration. The error <b>structure</b> (which sensor averages more, infers more, or hides more in a black box) is realistic; the exact numbers are not.</p>
+  <h3 style="font-size:12px;margin:12px 0 4px;border-top:1px solid rgba(255,255,255,.12);padding-top:10px">Where the error enters</h3>
+  <div id="stages"></div>
+</div>
+
+<div id="hint">drag to orbit · scroll to zoom · right-drag to pan · click a chain stage to find it in the scene</div>
+
+<div id="real">
+  <h2>Real soil moisture · NASA GIBS <span class="x" id="realx">✕ close</span></h2>
+  <div class="st" id="realst">…</div>
+  <select id="realsel"></select>
+  <div class="drow"><button id="dprev" title="earlier day">‹</button><span id="realdate">—</span><button id="dnext" title="later day">›</button></div>
+  <div class="imgwrap"><img id="realimg" alt="NASA GIBS soil moisture"><div class="marker" id="realmark" style="display:none"></div></div>
+  <div class="cbar"></div>
+  <div class="cbl"><span>drier</span><span>volumetric soil moisture · GIBS default styling</span><span>wetter</span></div>
+  <div class="rn" id="realnote"></div>
+</div>
+
+<script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+<script>
+// ---------- geography (reused from the flood POC) ----------
+const BBOX = { w:145.90, s:-17.56, e:146.05, n:-17.49 };
+const DEM_W = 240, DEM_H = 120;
+const M_PER_LON = 111320 * Math.cos((BBOX.n+BBOX.s)/2 * Math.PI/180);
+const M_PER_LAT = 110540;
+const WORLD_W = (BBOX.e-BBOX.w) * M_PER_LON;
+const WORLD_H = (BBOX.n-BBOX.s) * M_PER_LAT;
+const EXAG = 4;
+
+// ---------- sensor roster + SIMULATED error structure ----------
+// depth cm · foot m · revisit d · col · rz(SMAP root-zone) ·
+// sim* are ILLUSTRATIVE v/v fractions encoding each sensor's error character:
+//   simBias  = systematic retrieval offset (dielectric/veg model, calibration)
+//   simNoise = random retrieval noise amplitude (RFI, thermal, speckle)
+//   simSpat  = sub-pixel spatial heterogeneity averaged away (grows with footprint)
+const SENSORS = [
+  { id:'smap',  n:'SMAP',       band:'L',   freq:'1.41 GHz', depth:5, rz:100, foot:9000,  revisit:2.5, col:[0.24,0.74,1.00],
+    obs:'L-band brightness temperature', simBias:+0.010, simNoise:0.015, simSpat:0.05,
+    anc:'Ancillary soil texture & land cover; roughness parameterised.', note:'L-band · reference · root-zone L4' },
+  { id:'smos',  n:'SMOS',       band:'L',   freq:'1.41 GHz', depth:5,         foot:40000, revisit:3.0, col:[0.46,0.58,0.98],
+    obs:'L-band brightness temperature (interferometric)', simBias:-0.020, simNoise:0.042, simSpat:0.09,
+    anc:'RFI detection & flagging (L-band RFI is severe) + ancillary land cover/texture.', note:'L-band · first mission · RFI-prone' },
+  { id:'ascat', n:'ASCAT',      band:'C',   freq:'5.26 GHz', depth:2,         foot:25000, revisit:1.0, col:[0.98,0.74,0.26],
+    obs:'C-band radar backscatter (σ⁰)', simBias:+0.020, simNoise:0.030, simSpat:0.06,
+    anc:'Change-detection against dry/wet references; vegetation from slope of σ⁰.', note:'C-band scat · long climate record' },
+  { id:'s1',    n:'Sentinel-1', band:'C',   freq:'5.40 GHz', depth:4,         foot:50,    revisit:9.0, col:[0.42,0.92,0.52],
+    obs:'C-band SAR backscatter (σ⁰)', simBias:+0.040, simNoise:0.035, simSpat:0.01,
+    anc:'Roughness & vegetation structure strongly confound σ⁰; often downscaled against SMAP.', note:'C-band SAR · field-scale · slow revisit' },
+  { id:'amsr2', n:'AMSR2',      band:'C/X', freq:'6.9/10.6',  depth:1,        foot:25000, revisit:1.5, col:[0.96,0.52,0.78],
+    obs:'C/X-band brightness temperature', simBias:+0.050, simNoise:0.030, simSpat:0.06,
+    anc:'Higher freq → strong vegetation/temperature effects; multi-channel land model.', note:'C/X-band · multi-variable · supporting' },
+];
+SENSORS.forEach(s=>{ s.on=true; s.pulse=-1; });
+let selId = 'smap';
+let annOn = true;
+
+// ---------- log ----------
+const logEl = document.getElementById('log');
+const log = m => { logEl.innerHTML = "› "+m+"<br>"+logEl.innerHTML; };
+
+// ---------- DEM (reused verbatim) ----------
+let heights = new Float32Array(DEM_W*DEM_H);
+let hMin=0, hMax=1;
+function proceduralDEM(){
+  for(let j=0;j<DEM_H;j++) for(let i=0;i<DEM_W;i++){
+    const u=i/(DEM_W-1), v=j/(DEM_H-1);
+    let base=(1-u)*430; base+=Math.sin(v*7+u*4)*35*(1-u)+Math.cos(u*9)*18*(1-u);
+    const channel=0.5+0.16*Math.sin(u*6.0); base-=Math.max(0,26-Math.abs(v-channel)*260);
+    heights[j*DEM_W+i]=Math.max(0.5,base);
+  }
+  finalizeDEM("procedural relief (fallback)");
+}
+function finalizeDEM(src){
+  hMin=1e9;hMax=-1e9; for(const h of heights){ if(h<hMin)hMin=h; if(h>hMax)hMax=h; }
+  log("terrain ready: "+src+" · "+hMin.toFixed(0)+"–"+hMax.toFixed(0)+" m"); buildScene();
+}
+function loadImg(u){ return new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin='anonymous';
+  im.onload=()=>res(im); im.onerror=()=>rej(new Error('tile')); im.src=u; }); }
+async function loadDEM(){
+  const z=13,n=Math.pow(2,z);
+  const lon2t=lon=>(lon+180)/360*n, lat2t=lat=>{const r=lat*Math.PI/180;return (1-Math.asinh(Math.tan(r))/Math.PI)/2*n;};
+  const tx0=Math.floor(lon2t(BBOX.w)),tx1=Math.floor(lon2t(BBOX.e)),ty0=Math.floor(lat2t(BBOX.n)),ty1=Math.floor(lat2t(BBOX.s));
+  const cols=tx1-tx0+1,rows=ty1-ty0+1;
+  const cvs=document.createElement('canvas');cvs.width=cols*256;cvs.height=rows*256;
+  const ctx=cvs.getContext('2d',{willReadFrequently:true});
+  try{
+    const jobs=[];
+    for(let tx=tx0;tx<=tx1;tx++)for(let ty=ty0;ty<=ty1;ty++){
+      const url="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/"+z+"/"+tx+"/"+ty+".png";
+      jobs.push(loadImg(url).then(im=>ctx.drawImage(im,(tx-tx0)*256,(ty-ty0)*256)));
+    }
+    await Promise.all(jobs);
+    const id=ctx.getImageData(0,0,cvs.width,cvs.height).data,W=cvs.width,H=cvs.height;
+    const decode=(px,py)=>{px=Math.max(0,Math.min(W-1,px));py=Math.max(0,Math.min(H-1,py));const o=(py*W+px)*4;return (id[o]*256+id[o+1]+id[o+2]/256)-32768;};
+    for(let j=0;j<DEM_H;j++){const lat=BBOX.n-(j/(DEM_H-1))*(BBOX.n-BBOX.s),gy=Math.round(lat2t(lat)*256-ty0*256);
+      for(let i=0;i<DEM_W;i++){const lon=BBOX.w+(i/(DEM_W-1))*(BBOX.e-BBOX.w),gx=Math.round(lon2t(lon)*256-tx0*256);heights[j*DEM_W+i]=Math.max(0,decode(gx,gy));}}
+    finalizeDEM("AWS Terrarium 30 m (z"+z+")");
+  }catch(e){ log("terrain tiles failed ("+e.message+") → fallback"); proceduralDEM(); }
+}
+function sampleHeight(lon,lat){
+  const fx=(lon-BBOX.w)/(BBOX.e-BBOX.w)*(DEM_W-1),fy=(BBOX.n-lat)/(BBOX.n-BBOX.s)*(DEM_H-1);
+  const i=Math.max(0,Math.min(DEM_W-2,Math.floor(fx))),j=Math.max(0,Math.min(DEM_H-2,Math.floor(fy))),tx=fx-i,ty=fy-j;
+  const h00=heights[j*DEM_W+i],h10=heights[j*DEM_W+i+1],h01=heights[(j+1)*DEM_W+i],h11=heights[(j+1)*DEM_W+i+1];
+  return (h00*(1-tx)+h10*tx)*(1-ty)+(h01*(1-tx)+h11*tx)*ty;
+}
+
+// ---------- PlayCanvas ----------
+const canvas=document.getElementById('app');
+const app=new pc.Application(canvas,{mouse:new pc.Mouse(canvas),touch:new pc.TouchDevice(canvas)});
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW); app.setCanvasResolution(pc.RESOLUTION_AUTO);
+window.addEventListener('resize',()=>app.resizeCanvas()); app.start();
+
+const cam=new pc.Entity('camera');
+cam.addComponent('camera',{clearColor:new pc.Color(0.80,0.86,0.91),farClip:200000,nearClip:5,fov:55});
+app.root.addChild(cam);
+const sun=new pc.Entity('sun');
+sun.addComponent('light',{type:'directional',color:new pc.Color(1,0.96,0.86),intensity:1.1,castShadows:true,shadowBias:0.2,shadowDistance:60000,normalOffsetBias:0.06});
+sun.setEulerAngles(52,205,0); app.root.addChild(sun);
+app.scene.ambientLight=new pc.Color(0.42,0.5,0.58);
+let skyDome=null,terrainEnt=null;
+
+function buildSky(){
+  const g=document.createElement('canvas');g.width=8;g.height=256;
+  const gx=g.getContext('2d'),grd=gx.createLinearGradient(0,0,0,256);
+  grd.addColorStop(0,'#3d72c6');grd.addColorStop(.5,'#9cbcd6');grd.addColorStop(1,'#d3dde4');
+  gx.fillStyle=grd;gx.fillRect(0,0,8,256);
+  const tex=new pc.Texture(app.graphicsDevice,{mipmaps:true,addressU:pc.ADDRESS_CLAMP_TO_EDGE,addressV:pc.ADDRESS_CLAMP_TO_EDGE});tex.setSource(g);
+  const mat=new pc.StandardMaterial();mat.useLighting=false;mat.useFog=false;mat.diffuse=new pc.Color(0,0,0);mat.emissive=new pc.Color(1,1,1);mat.emissiveMap=tex;mat.cull=pc.CULLFACE_FRONT;mat.update();
+  skyDome=new pc.Entity('sky');skyDome.addComponent('render',{type:'sphere',castShadows:false,receiveShadows:false});
+  skyDome.render.meshInstances[0].material=mat;skyDome.setLocalScale(120000,120000,120000);app.root.addChild(skyDome);
+  app.scene.fog=pc.FOG_LINEAR;app.scene.fogColor=new pc.Color(0.82,0.87,0.91);app.scene.fogStart=12000;app.scene.fogEnd=90000;
+  app.scene.ambientLight=new pc.Color(0.40,0.46,0.56);
+  sun.setEulerAngles(34,208,0);sun.light.color=new pc.Color(1.0,0.9,0.74);sun.light.intensity=1.25;
+}
+function buildTerrain(){
+  const positions=[],uvs=[],indices=[];
+  for(let j=0;j<DEM_H;j++)for(let i=0;i<DEM_W;i++){positions.push((i/(DEM_W-1)-0.5)*WORLD_W,heights[j*DEM_W+i]*EXAG,(j/(DEM_H-1)-0.5)*WORLD_H);uvs.push(i/(DEM_W-1),1-j/(DEM_H-1));}
+  for(let j=0;j<DEM_H-1;j++)for(let i=0;i<DEM_W-1;i++){const a=j*DEM_W+i,b=a+1,c=a+DEM_W,d=c+1;indices.push(a,c,b,b,c,d);}
+  const normals=pc.calculateNormals(positions,indices);
+  const mesh=pc.createMesh(app.graphicsDevice,positions,{uvs,normals,indices});
+  const mat=new pc.StandardMaterial();mat.diffuse=new pc.Color(0.32,0.4,0.26);mat.gloss=0.12;mat.metalness=0;mat.useMetalness=true;mat.update();
+  terrainEnt=new pc.Entity('terrain');terrainEnt.addComponent('render',{meshInstances:[new pc.MeshInstance(mesh,mat)],castShadows:true,receiveShadows:true});
+  terrainEnt._mat=mat;app.root.addChild(terrainEnt);
+}
+function loadImagery(){
+  if(!terrainEnt)return;
+  const url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox="+BBOX.w+","+BBOX.s+","+BBOX.e+","+BBOX.n+"&bboxSR=4326&size=1024,512&format=jpg&f=image";
+  const img=new Image();img.crossOrigin="anonymous";
+  img.onload=()=>{const tex=new pc.Texture(app.graphicsDevice,{mipmaps:true,addressU:pc.ADDRESS_CLAMP_TO_EDGE,addressV:pc.ADDRESS_CLAMP_TO_EDGE});tex.setSource(img);terrainEnt._mat.diffuse=new pc.Color(1,1,1);terrainEnt._mat.diffuseMap=tex;terrainEnt._mat.update();log("satellite drape applied (World Imagery)");};
+  img.onerror=()=>log("imagery blocked (CORS) → flat terrain colour");img.src=url;
+}
+
+// ---------- soil-moisture explainer ----------
+const CORE_W=2600,CORE_D=2600,CORE_GAP=1400,H_BASE=6200;
+let depthZoom=1,centerH=0,surfaceY=0,coreH=H_BASE;
+let coreEnt=null,coreMat=null,coreTex=null;
+const sensorObjs={}; let daxDivs=[]; let truescale=false;
+
+let surfaceWet=0.35,surfaceWetTarget=0.35; const DEEP_WET=0.5,TAU=8;
+function profileAt(cm){ return DEEP_WET+(surfaceWet-DEEP_WET)*Math.exp(-cm/TAU); }
+function reading(D){ const I=DEEP_WET*D+(surfaceWet-DEEP_WET)*TAU*(1-Math.exp(-D/TAU)); return I/D; }
+function depthFrac(cm){ return cm<=5?(cm/5)*0.6:0.6+((cm-5)/95)*0.4; }
+function fracToDepth(f){ return f<=0.6?f/0.6*5:5+(f-0.6)/0.4*95; }
+function depthY(cm){ return surfaceY+coreH*(1-depthFrac(cm)); }
+function coreTopY(){ return surfaceY+coreH; }
+function footVisual(m){ return truescale?m:Math.max(300,-2849+1911*Math.log10(m)); }
+
+// simulated retrieval outputs -------------------------------------------------
+function slowNoise(i,t){ return 0.6*Math.sin(t*0.7+i*1.3)+0.4*Math.sin(t*1.7+i*2.1); } // ~[-1,1]
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+function trueAvg(s){ return reading(s.depth); }                 // ideal depth+area average
+function retrieved(s,t){ const i=SENSORS.indexOf(s); return clamp(trueAvg(s)+s.simBias+s.simNoise*slowNoise(i,t),0.02,0.99); }
+function retrErr(s){ return Math.abs(s.simBias)+s.simNoise; }   // ± band from inference+black box
+
+function makeCoreTex(){
+  const w=64,h=256,c=document.createElement('canvas');c.width=w;c.height=h;const cx=c.getContext('2d');
+  for(let r=0;r<h;r++){const cm=fracToDepth(r/(h-1)),m=profileAt(cm);
+    const rr=Math.round(196+(58-196)*m),gg=Math.round(168+(74-168)*m),bb=Math.round(120+(96-120)*m);
+    cx.fillStyle="rgb("+rr+","+gg+","+bb+")";cx.fillRect(0,r,w,1);}
+  cx.globalAlpha=0.10;cx.strokeStyle="#000";for(let r=6;r<h;r+=11){cx.beginPath();cx.moveTo(0,r);cx.lineTo(w,r);cx.stroke();}cx.globalAlpha=1;
+  const tex=new pc.Texture(app.graphicsDevice,{mipmaps:true,addressU:pc.ADDRESS_CLAMP_TO_EDGE,addressV:pc.ADDRESS_CLAMP_TO_EDGE});tex.setSource(c);return tex;
+}
+function refreshCoreTex(){ if(!coreMat)return; if(coreTex)coreTex.destroy(); coreTex=makeCoreTex(); coreMat.diffuseMap=coreTex; coreMat.emissiveMap=coreTex; coreMat.update(); }
+function mat(col,opts){
+  const m=new pc.StandardMaterial();m.diffuse=new pc.Color(col[0],col[1],col[2]);
+  if(opts&&opts.emissive)m.emissive=new pc.Color(col[0]*opts.emissive,col[1]*opts.emissive,col[2]*opts.emissive);
+  if(opts&&opts.opacity!=null){m.opacity=opts.opacity;m.blendType=pc.BLEND_NORMAL;m.depthWrite=false;}
+  m.useMetalness=true;m.metalness=0;m.gloss=opts&&opts.gloss!=null?opts.gloss:0.2;m.update();return m;
+}
+
+function buildColumn(){
+  coreH=H_BASE*depthZoom;
+  coreMat=mat([0.5,0.44,0.34],{gloss:0.08});coreTex=makeCoreTex();
+  coreMat.diffuseMap=coreTex;coreMat.emissiveMap=coreTex;coreMat.emissive=new pc.Color(0.62,0.62,0.62);coreMat.update();
+  coreEnt=new pc.Entity('core');coreEnt.addComponent('render',{type:'box',castShadows:true});
+  coreEnt.render.meshInstances[0].material=coreMat;coreEnt.setLocalScale(CORE_W,coreH,CORE_D);coreEnt.setPosition(0,surfaceY+coreH/2,0);app.root.addChild(coreEnt);
+
+  const N=SENSORS.length;
+  SENSORS.forEach((s,i)=>{
+    const o={};sensorObjs[s.id]=o;o.satX=(i-(N-1)/2)*680;
+    o.footMat=mat(s.col,{opacity:0.36,gloss:0.2});o.footMat.emissive=new pc.Color(s.col[0]*0.35,s.col[1]*0.35,s.col[2]*0.35);o.footMat.update();
+    o.foot=new pc.Entity('foot_'+s.id);o.foot.addComponent('render',{type:'plane',castShadows:false});o.foot.render.meshInstances[0].material=o.footMat;app.root.addChild(o.foot);
+    o.slabMat=mat(s.col,{emissive:0.5,opacity:0.9,gloss:0.3});
+    o.slab=new pc.Entity('slab_'+s.id);o.slab.addComponent('render',{type:'box',castShadows:false});o.slab.render.meshInstances[0].material=o.slabMat;app.root.addChild(o.slab);
+    if(s.rz){o.rzMat=mat(s.col,{opacity:0.13,gloss:0.1});o.rz=new pc.Entity('rz_'+s.id);o.rz.addComponent('render',{type:'box',castShadows:false});o.rz.render.meshInstances[0].material=o.rzMat;app.root.addChild(o.rz);}
+    o.satMat=mat(s.col,{emissive:0.6,gloss:0.5});o.sat=new pc.Entity('sat_'+s.id);o.sat.addComponent('render',{type:'box',castShadows:false});o.sat.render.meshInstances[0].material=o.satMat;o.sat.setLocalScale(360,150,360);app.root.addChild(o.sat);
+    o.pulseMat=mat([1,1,1],{emissive:1.0,opacity:0.85});o.pulseMat.emissive=new pc.Color(s.col[0]+0.3,s.col[1]+0.3,s.col[2]+0.3);o.pulseMat.update();
+    o.pulse=new pc.Entity('pulse_'+s.id);o.pulse.addComponent('render',{type:'box',castShadows:false});o.pulse.render.meshInstances[0].material=o.pulseMat;o.pulse.enabled=false;app.root.addChild(o.pulse);
+    const d=document.createElement('div');d.className='lbl';document.body.appendChild(d);o.label=d;
+  });
+  ['0','2','5','20','50','100'].forEach(t=>{const d=document.createElement('div');d.className='dax';d.textContent=t+' cm';document.body.appendChild(d);daxDivs.push({el:d,cm:parseFloat(t)});});
+
+  // annotation pins (reused pool, only the selected sensor's shown)
+  PIN_KEYS.forEach(k=>{ const d=document.createElement('div');d.className='pin';d.style.display='none';document.body.appendChild(d);pins[k]=d; });
+  layoutColumn();
+}
+function layoutColumn(){
+  coreH=H_BASE*depthZoom;
+  if(coreEnt){coreEnt.setLocalScale(CORE_W,coreH,CORE_D);coreEnt.setPosition(0,surfaceY+coreH/2,0);}
+  const groundY=centerH+20,satY=coreTopY()+1300;
+  SENSORS.forEach((s,i)=>{
+    const o=sensorObjs[s.id];const fs=footVisual(s.foot);
+    o.foot.setLocalScale(fs,1,fs);o.foot.setPosition(0,groundY+8+s.depth*2,0);
+    const dy=depthY(s.depth),extra=460+i*95;
+    o.slab.setLocalScale(CORE_W+extra,110,CORE_D+extra);o.slab.setPosition(0,dy+i*4,0);o.slab._base=o.slab.getLocalScale().clone();
+    if(o.rz){const yTop=depthY(0),yBot=depthY(s.rz);o.rz.setLocalScale(CORE_W+300,(yTop-yBot),CORE_D+300);o.rz.setPosition(0,(yTop+yBot)/2,0);}
+    o.sat.setPosition(o.satX,satY,0);o.sat._base=o.sat.getLocalScale().clone();
+    o.foot._base=o.foot.getLocalScale().clone();
+  });
+  daxDivs.forEach(t=>{t.wp=new pc.Vec3(CORE_W/2+900,depthY(t.cm),0);});
+}
+
+let camReady=false;
+function buildScene(){
+  buildSky();buildTerrain();loadImagery();
+  centerH=sampleHeight((BBOX.w+BBOX.e)/2,(BBOX.n+BBOX.s)/2)*EXAG;surfaceY=centerH+CORE_GAP;
+  buildColumn();buildChips();buildStages();frameCamera();camReady=true;
+  document.getElementById('ann').style.display=annOn?'block':'none';
+  log("scene built · 5 sensors · click a chain stage to locate it");
+}
+
+// ---------- HUD ----------
+function fmtPct(x){ return Math.round(x*100)+"%"; }
+function colCss(c,a){ return 'rgba('+Math.round(c[0]*255)+','+Math.round(c[1]*255)+','+Math.round(c[2]*255)+','+(a==null?1:a)+')'; }
+function buildChips(){
+  const box=document.getElementById('chips');box.innerHTML='';
+  SENSORS.forEach(s=>{
+    const c=document.createElement('div');c.className='chip'+(s.on?'':' off')+(s.id===selId?' sel':'');c.dataset.id=s.id;
+    c.innerHTML='<input type="checkbox" '+(s.on?'checked':'')+'>'
+      +'<span class="sw" style="background:'+colCss(s.col)+'"></span>'
+      +'<span><span class="nm">'+s.n+'</span><small>'+s.band+'-band · '+s.depth+' cm · '+(s.foot>=1000?(s.foot/1000)+' km':s.foot+' m')+' · ~'+s.revisit+' d</small></span>'
+      +'<span class="rd" id="rd_'+s.id+'">–</span>';
+    const cb=c.querySelector('input');
+    cb.onclick=(e)=>{e.stopPropagation();s.on=cb.checked;toggleSensor(s);c.className='chip'+(s.on?'':' off')+(s.id===selId?' sel':'');};
+    c.onclick=()=>{ selId=s.id; if(!s.on){s.on=true;cb.checked=true;toggleSensor(s);} selectSensor(); };
+    box.appendChild(c);
+  });
+}
+function refreshChipSel(){ document.querySelectorAll('.chip').forEach(c=>{ const on=SENSORS.find(x=>x.id===c.dataset.id).on; c.className='chip'+(on?'':' off')+(c.dataset.id===selId?' sel':''); }); }
+function toggleSensor(s){
+  const o=sensorObjs[s.id];if(!o)return;
+  o.foot.enabled=s.on;o.slab.enabled=s.on;o.sat.enabled=s.on;if(o.rz)o.rz.enabled=s.on;
+  o.label.style.display=s.on?'block':'none';if(!s.on)o.pulse.enabled=false;
+}
+function selectSensor(){ refreshChipSel(); buildStages(); ladderKey=''; log("focus → "+SENSORS.find(s=>s.id===selId).n); }
+
+const wet=document.getElementById('wet'),dz=document.getElementById('dz'),ts=document.getElementById('truescale'),an=document.getElementById('annon');
+wet.oninput=()=>{surfaceWetTarget=parseFloat(wet.value)/100;document.getElementById('wetv').textContent=wet.value+'%';};
+dz.oninput=()=>{depthZoom=parseFloat(dz.value);document.getElementById('dzv').textContent=depthZoom.toFixed(1)+'×';layoutColumn();};
+ts.onchange=()=>{truescale=ts.checked;document.getElementById('scmode').textContent=truescale?'true scale':'nested (log)';layoutColumn();log(truescale?'footprints → TRUE scale (radiometers dwarf the scene)':'footprints → nested log scale');};
+an.onchange=()=>{annOn=an.checked;document.getElementById('ann').style.display=annOn?'block':'none';log(annOn?'error annotations ON':'error annotations OFF');};
+document.getElementById('measure').onclick=()=>{SENSORS.forEach(s=>{if(s.on)s.pulse=0;});};
+
+// ---------- retrieval chain (per selected sensor) ----------
+const PIN_KEYS=['foot','band','sat','rz'];
+const pins={};
+function chainFor(s){
+  const footTxt=s.foot>=1000?(s.foot/1000)+' km':s.foot+' m';
+  const stages=[
+    {c:null,anchor:'band',t:'True soil water',d:'The real moisture — varying by the millimetre with depth and by the metre across the field. This is what we never actually see.'},
+    {c:'avg',anchor:'band',t:'Sensing-depth average',d:'The signal is a weighted integral over roughly the top '+s.depth+' cm. A value at one depth is unrecoverable — it is already an average.'},
+    {c:'avg',anchor:'foot',t:'Footprint average',d:'One number spread over ~'+footTxt+'. Every wet furrow and dry ridge inside the pixel is collapsed to a mean.'},
+    {c:null,anchor:'sat',t:'Observable: '+s.obs.split(' (')[0],d:'The satellite never measures moisture. It measures '+s.obs+'.'},
+    {c:'inf',anchor:'sat',t:'Radiative-transfer retrieval',d:'Invert a τ–ω physical model to infer moisture from the observable. Assumes vegetation optical depth, surface roughness and soil temperature — each an estimate.'},
+    {c:'box',anchor:'band',t:'Dielectric → water content',d:'A semi-empirical mixing model (Mironov / Dobson) converts permittivity to volumetric water. Fitted to lab soils, not derived — an opaque step.'},
+    {c:'box',anchor:'sat',t:'Ancillary data & flags',d:s.anc},
+    {c:'inf',anchor:null,t:'Calibration / rescaling',d:'Output is CDF-matched or bias-corrected against a reference climatology, folding in the statistics of a model you cannot see.'},
+    {c:null,anchor:'read',t:'Delivered value',d:'The number you use: an average, of an inference, drawn through a partial black box.'},
+  ];
+  if(s.id==='s1') stages.splice(7,0,{c:'inf',anchor:'foot',t:'Statistical downscaling',d:'Field-scale σ⁰ is regressed against a coarse SMAP value to force physical realism — a statistical marriage of two very different sensors.'});
+  if(s.rz) stages.splice(stages.length-1,0,{c:'inf',anchor:'rz',t:'Root-zone assimilation (0–100 cm)',d:'The root-zone product is NOT measured. Surface retrievals are blended into a land-surface model via an Ensemble Kalman Filter — model + inference all the way down.'});
+  return stages;
+}
+const CATNAME={avg:'average',inf:'inference',box:'black box'};
+const CATCOL={avg:'#39d0c8',inf:'#f2b24a',box:'#e368b8'};
+function buildStages(){
+  const s=SENSORS.find(x=>x.id===selId);
+  document.getElementById('annwho').textContent=s.n+' · '+s.band+'-band · '+s.obs;
+  const box=document.getElementById('stages');box.innerHTML='';
+  chainFor(s).forEach((st,idx)=>{
+    const el=document.createElement('div');el.className='stage'+(st.c?(' '+st.c):'');
+    const tag=st.c?'<span class="tag" style="background:'+CATCOL[st.c]+'33;color:'+CATCOL[st.c]+'">'+CATNAME[st.c]+'</span>':'';
+    el.innerHTML='<span class="st">'+(idx+1)+'. '+st.t+tag+'</span><span class="sd">'+st.d+'</span>';
+    el.onclick=()=>pulseAnchor(st.anchor);
+    box.appendChild(el);
+  });
+}
+
+// ---------- camera (reused orbit controls) ----------
+let camDist=13000,camYaw=22,camPitch=26,camTarget=new pc.Vec3(0,1200,0);
+let dragging=false,panning=false,lastX=0,lastY=0;
+function updateCam(){const p=camPitch*pc.math.DEG_TO_RAD,y=camYaw*pc.math.DEG_TO_RAD;const x=camDist*Math.cos(p)*Math.sin(y),yy=camDist*Math.sin(p),z=camDist*Math.cos(p)*Math.cos(y);cam.setPosition(camTarget.x+x,camTarget.y+yy,camTarget.z+z);cam.lookAt(camTarget);}
+function frameCamera(){camDist=WORLD_W*0.72;camYaw=22;camPitch=22;camTarget=new pc.Vec3(0,surfaceY+coreH*0.52,0);updateCam();}
+app.mouse.on(pc.EVENT_MOUSEDOWN,e=>{dragging=e.button===pc.MOUSEBUTTON_LEFT;panning=e.button===pc.MOUSEBUTTON_RIGHT;lastX=e.x;lastY=e.y;});
+app.mouse.on(pc.EVENT_MOUSEUP,()=>{dragging=false;panning=false;});
+app.mouse.on(pc.EVENT_MOUSEMOVE,e=>{const dx=e.x-lastX,dy=e.y-lastY;lastX=e.x;lastY=e.y;
+  if(dragging){camYaw-=dx*0.3;camPitch=Math.max(6,Math.min(84,camPitch+dy*0.3));updateCam();}
+  else if(panning){const sc=camDist*0.0012,r=cam.right,u=cam.up;camTarget.x+=(-r.x*dx+u.x*dy)*sc;camTarget.y+=(-r.y*dx+u.y*dy)*sc;camTarget.z+=(-r.z*dx+u.z*dy)*sc;updateCam();}});
+app.mouse.on(pc.EVENT_MOUSEWHEEL,e=>{camDist=Math.max(2500,Math.min(90000,camDist*(1-e.wheelDelta*0.08)));updateCam();e.event.preventDefault();});
+app.mouse.disableContextMenu();
+
+// ---------- anchor pulse (chain-stage click → find in scene) ----------
+let hi={ent:null,t:0,base:null};
+function pulseAnchor(a){
+  const o=sensorObjs[selId];let ent=null;
+  if(a==='band')ent=o.slab; else if(a==='foot')ent=o.foot; else if(a==='sat')ent=o.sat; else if(a==='rz')ent=o.rz||o.slab; else ent=coreEnt;
+  if(!ent)return; hi={ent,t:0,base:ent.getLocalScale().clone()};
+  log("↳ "+(a||'core'));
+}
+
+// ---------- update ----------
+const _sp=new pc.Vec3();
+let ladderKey='';
+function buildLadder(s,t){
+  const pt=surfaceWet, av=trueAvg(s), rv=retrieved(s,t), er=retrErr(s);
+  const pct=x=>clamp(x,0,1)*100;
+  const rows=[
+    {lab:'Point truth @0 cm',v:pt,col:'#dfe8ef',w:null},
+    {lab:'Depth+area average',v:av,col:'#39d0c8',w:s.simSpat},
+    {lab:'Retrieved (simulated)',v:rv,col:'#f2b24a',w:er},
+  ];
+  if(s.rz) rows.push({lab:'Root-zone model (0–100 cm)',v:clamp(reading(s.rz)+s.simBias*0.5,0.02,0.99),col:'#e368b8',w:er*1.2});
+  let html='';
+  rows.forEach(r=>{
+    const wh=r.w!=null?'<span class="whisk" style="left:calc('+pct(r.v-r.w)+'% );width:calc('+pct(2*r.w)+'% )"></span>':'';
+    html+='<div class="lrow"><div class="lh"><span>'+r.lab+'</span><b>'+fmtPct(r.v)+(r.w!=null?' ±'+Math.round(r.w*100):'')+'</b></div>'
+        +'<div class="track"><span class="fill" style="width:'+pct(r.v)+'%;background:'+r.col+'"></span>'+wh+'</div></div>';
+  });
+  document.getElementById('ladder').innerHTML=html;
+  const dAv=av-pt, dInf=rv-av;
+  document.getElementById('dAvg').innerHTML='averaging pulls the value '+(dAv>=0?'+':'')+Math.round(dAv*100)+'% (depth) · ±'+Math.round(s.simSpat*100)+'% sub-pixel spread';
+  document.getElementById('dInf').innerHTML='inference + black box shift '+(dInf>=0?'+':'')+Math.round(dInf*100)+'% · noisy to ±'+Math.round(er*100)+'%';
+}
+let clock=0;
+app.on('update',dt=>{
+  clock+=dt;
+  if(skyDome)skyDome.setPosition(cam.getPosition());
+  if(!camReady)return;
+  if(Math.abs(surfaceWet-surfaceWetTarget)>0.001){surfaceWet+=(surfaceWetTarget-surfaceWet)*Math.min(1,dt*4);refreshCoreTex();}
+
+  // anchor pulse animation
+  if(hi.ent){ hi.t+=dt/0.6; const k=hi.t<1?(1+0.16*Math.sin(hi.t*Math.PI)):1; hi.ent.setLocalScale(hi.base.x*k,hi.base.y*k,hi.base.z*k); if(hi.t>=1){hi.ent.setLocalScale(hi.base.x,hi.base.y,hi.base.z);hi.ent=null;} }
+
+  const satBob=Math.sin(clock*1.3)*60;
+  SENSORS.forEach(s=>{
+    const o=sensorObjs[s.id];if(!o||!s.on)return;
+    o.sat.setPosition(o.satX,coreTopY()+1300+satBob,0);
+    const rv=retrieved(s,clock);
+    const chip=document.getElementById('rd_'+s.id);if(chip)chip.innerHTML=fmtPct(rv)+'<small style="color:#9fb4c4">±'+Math.round(retrErr(s)*100)+'</small>';
+
+    if(s.pulse>=0){
+      s.pulse+=dt/0.65;const yTop=coreTopY()+1200,yBot=depthY(s.depth),seg=(yTop-yBot);
+      const headY=yTop-Math.min(s.pulse,1)*seg,len=seg*0.22;
+      o.pulse.enabled=true;o.pulse.setLocalScale(140,len,140);o.pulse.setPosition(o.satX,headY-len/2,0);
+      if(s.pulse>=1.25){s.pulse=-1;o.pulse.enabled=false;}
+    }
+
+    // spec label anchored to band depth (left column, decluttered)
+    const lab=o.label,idx=SENSORS.indexOf(s);
+    const footTxt=s.foot>=1000?(s.foot/1000)+' km':s.foot+' m';
+    let rd='<span class="r">'+fmtPct(rv)+'</span> v/v';
+    if(s.rz)rd+=' · RZ <span class="r">'+fmtPct(reading(s.rz))+'</span>';
+    lab.innerHTML=s.n+'<small>'+s.band+'-band · '+s.depth+' cm · '+footTxt+' · ~'+s.revisit+' d · '+rd+'</small>';
+    cam.camera.worldToScreen(new pc.Vec3(-(CORE_W/2+560),depthY(s.depth)+idx*4,0),_sp);
+    o.labVis=_sp.z>0&&_sp.x>-120&&_sp.x<canvas.clientWidth+120&&_sp.y>-40&&_sp.y<canvas.clientHeight+40;o.labX=_sp.x;o.labY=_sp.y;
+  });
+
+  // declutter spec labels
+  const vis=SENSORS.filter(s=>s.on&&sensorObjs[s.id].labVis).map(s=>sensorObjs[s.id]);
+  vis.sort((a,b)=>a.labY-b.labY);const MINDY=30;
+  for(let k=1;k<vis.length;k++){if(vis[k].labY<vis[k-1].labY+MINDY)vis[k].labY=vis[k-1].labY+MINDY;}
+  SENSORS.forEach(s=>{const o=sensorObjs[s.id],d=o.label;if(s.on&&o.labVis){d.style.display='block';d.style.left=o.labX+'px';d.style.top=o.labY+'px';}else d.style.display='none';});
+
+  // depth ticks (hidden when annotations on to make room for pins)
+  daxDivs.forEach(t=>{ if(annOn){t.el.style.display='none';return;} if(t.wp)projTo(t.wp,t.el); });
+
+  // annotation pins for the selected sensor
+  updatePins();
+
+  // right-panel ladder (throttled by value change)
+  if(annOn){
+    const s=SENSORS.find(x=>x.id===selId);
+    const key=selId+'|'+Math.round(surfaceWet*100)+'|'+Math.round(retrieved(s,clock)*100);
+    if(key!==ladderKey){ ladderKey=key; buildLadder(s,clock); }
+  }
+});
+function projTo(wp,div){cam.camera.worldToScreen(wp,_sp);
+  if(_sp.z>0&&_sp.x>-120&&_sp.x<canvas.clientWidth+120&&_sp.y>-40&&_sp.y<canvas.clientHeight+40){div.style.display='block';div.style.left=_sp.x+'px';div.style.top=_sp.y+'px';return true;}
+  div.style.display='none';return false;}
+
+function updatePins(){
+  const s=SENSORS.find(x=>x.id===selId);const o=sensorObjs[s.id];
+  if(!annOn||!s.on){ PIN_KEYS.forEach(k=>pins[k].style.display='none'); return; }
+  const footTxt=s.foot>=1000?(s.foot/1000)+' km':s.foot+' m';
+  const fs=footVisual(s.foot);
+  const defs={
+    foot:{wp:new pc.Vec3(Math.max(fs*0.5,CORE_W/2+300)+120,centerH+40,0),cat:'avg',
+      html:'▧ SPATIAL AVERAGE<small>one value over ~'+footTxt+' — sub-pixel detail lost</small>'},
+    band:{wp:new pc.Vec3(CORE_W/2+340,depthY(s.depth),0),cat:'avg',
+      html:'▧ DEPTH AVERAGE<small>weighted integral over ~'+s.depth+' cm, not a point</small>'},
+    sat:{wp:new pc.Vec3(o.satX+380,coreTopY()+1300,0),cat:'inf',
+      html:'∿ INFERENCE + ▮ BLACK BOX<small>'+s.obs.split(' (')[0]+' → moisture via retrieval + dielectric model</small>'},
+  };
+  if(s.rz) defs.rz={wp:new pc.Vec3(CORE_W/2+340,depthY(45),0),cat:'inf',
+      html:'∿ MODELLED, NOT MEASURED<small>0–100 cm from data assimilation into a land-surface model</small>'};
+  // position + declutter pins vertically
+  const active=[];
+  PIN_KEYS.forEach(k=>{const p=pins[k];const def=defs[k];if(!def){p.style.display='none';return;}
+    p.innerHTML=def.html;p.style.borderLeftColor=CATCOL[def.cat];
+    cam.camera.worldToScreen(def.wp,_sp);
+    if(_sp.z>0&&_sp.x>-60&&_sp.x<canvas.clientWidth&&_sp.y>-40&&_sp.y<canvas.clientHeight+40){p.style.display='block';p._x=_sp.x;p._y=_sp.y;active.push(p);}else p.style.display='none';});
+  active.sort((a,b)=>a._y-b._y);const MIN=44;
+  for(let k=1;k<active.length;k++){if(active[k]._y<active[k-1]._y+MIN)active[k]._y=active[k-1]._y+MIN;}
+  active.forEach(p=>{p.style.left=p._x+'px';p.style.top=p._y+'px';});
+}
+
+// ---------- real NASA GIBS soil-moisture layer (runtime-discovered, no auth) ----------
+const GIBS_WMS='https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const REGION={ w:138, s:-25, e:154, n:-9 };                 // NE Australia around Innisfail
+const INNIS={ lon:(BBOX.w+BBOX.e)/2, lat:(BBOX.n+BBOX.s)/2 };
+let gibsLayers=[], realDateObj=new Date(Date.now()-3*86400000);
+const FALLBACK_LAYERS=[
+  { id:'SMAP_L4_Analyzed_Surface_Soil_Moisture',   label:'SMAP L4 · surface (0–5 cm)',    cat:'smap' },
+  { id:'SMAP_L4_Analyzed_Root_Zone_Soil_Moisture', label:'SMAP L4 · root zone (0–100 cm)', cat:'smaprz' },
+  { id:'SMAP_L3_Passive_Day_Soil_Moisture',        label:'SMAP L3 · passive (AM)',         cat:'smapl3' },
+];
+function ymd(d){ return d.toISOString().slice(0,10); }
+// pure parser (testable): pull soil-moisture layer Names from a WMS GetCapabilities string
+function parseGibs(txt){
+  const names=[...txt.matchAll(/<Name>([^<]*Soil_Moisture[^<]*)<\/Name>/gi)].map(m=>m[1]);
+  const uniq=[...new Set(names)].filter(id=>/SMAP|SMOS/i.test(id));
+  const mk=id=>{ let cat,label;
+    if(/SMOS/i.test(id)){cat='smos';label='SMOS · soil moisture';}
+    else if(/Root/i.test(id)){cat='smaprz';label='SMAP · root zone (0–100 cm)';}
+    else if(/Surface|L4/i.test(id)){cat='smap';label='SMAP · surface (0–5 cm)';}
+    else if(/L3|Passive/i.test(id)){cat='smapl3';label='SMAP L3 · passive';}
+    else {cat='smap';label='SMAP · '+id;}
+    return {id,label,cat}; };
+  const all=uniq.map(mk), pick=c=>all.find(x=>x.cat===c);
+  return [pick('smap'),pick('smaprz'),pick('smapl3'),pick('smos')].filter(Boolean);
+}
+async function discoverLayers(){
+  try{
+    const r=await fetch(GIBS_WMS+'?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0',{mode:'cors'});
+    const got=parseGibs(await r.text());
+    gibsLayers=got.length?got:FALLBACK_LAYERS.slice();
+    return got.length>0;
+  }catch(e){ gibsLayers=FALLBACK_LAYERS.slice(); return false; }
+}
+function gibsUrl(id,date){
+  const bb=REGION.s+','+REGION.w+','+REGION.n+','+REGION.e;   // WMS 1.3.0 EPSG:4326 axis order = lat,lon
+  return GIBS_WMS+'?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS='+encodeURIComponent(id)
+    +'&CRS=EPSG:4326&BBOX='+bb+'&WIDTH=512&HEIGHT=512&FORMAT=image/png&TRANSPARENT=true&TIME='+date;
+}
+function loadReal(){
+  const sel=document.getElementById('realsel'), id=sel.value;
+  const img=document.getElementById('realimg'), mark=document.getElementById('realmark'), st=document.getElementById('realst');
+  if(!id){ st.textContent='no layer selected'; return; }
+  let tries=0;
+  const go=()=>{ const date=ymd(realDateObj); document.getElementById('realdate').textContent=date;
+    st.textContent='loading '+id+' · '+date+' …'; mark.style.display='none'; img.src=gibsUrl(id,date); };
+  img.onload=()=>{ st.textContent='✓ '+id+' · '+ymd(realDateObj);
+    const wrap=img.parentElement, rw=wrap.clientWidth, rh=wrap.clientHeight;
+    mark.style.left=((INNIS.lon-REGION.w)/(REGION.e-REGION.w)*rw)+'px';
+    mark.style.top=((REGION.n-INNIS.lat)/(REGION.n-REGION.s)*rh)+'px'; mark.style.display='block'; };
+  img.onerror=()=>{ if(tries<6){ tries++; realDateObj=new Date(realDateObj.getTime()-86400000); go(); }
+    else st.textContent='⚠ could not load — this activates in your browser (which can reach NASA GIBS); the layer id/date may need a nudge'; };
+  go();
+}
+async function openReal(){
+  document.getElementById('real').style.display='block';
+  const sel=document.getElementById('realsel');
+  if(!gibsLayers.length){
+    document.getElementById('realst').textContent='discovering GIBS layers…';
+    const ok=await discoverLayers();
+    sel.innerHTML=gibsLayers.map(l=>'<option value="'+l.id+'">'+l.label+'</option>').join('');
+    const smos=gibsLayers.some(l=>l.cat==='smos');
+    document.getElementById('realnote').innerHTML=
+      'At this scene’s ~16 km width, SMAP covers only ~1–3 pixels — the coarse resolution this explainer is about. '
+      +(smos?'':'SMOS is not served by GIBS, so only SMAP layers appear here; a real SMOS layer needs ESA CATDS / Earthdata (auth). ')
+      +'Source: <a href="https://worldview.earthdata.nasa.gov" target="_blank">NASA Worldview / GIBS</a>'
+      +(ok?'':' · <i>layer list from fallback — live discovery was blocked</i>');
+  }
+  loadReal();
+}
+document.getElementById('realbtn').onclick=openReal;
+document.getElementById('realx').onclick=()=>{ document.getElementById('real').style.display='none'; };
+document.getElementById('realsel').onchange=loadReal;
+document.getElementById('dprev').onclick=()=>{ realDateObj=new Date(realDateObj.getTime()-86400000); loadReal(); };
+document.getElementById('dnext').onclick=()=>{ const nx=new Date(realDateObj.getTime()+86400000); if(nx<=new Date()) { realDateObj=nx; loadReal(); } };
+
+log("loading terrain + imagery from ArcGIS…");
+loadDEM();
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Signal's Journey — how a soil-moisture measurement is actually captured</title>
+<style>
+  :root{
+    --measured:#46c78a; --contam:#ef6a5a; --avg:#39d0c8; --infer:#f2b24a; --box:#e368b8;
+    --bg:#0a1420; --panel:rgba(12,22,34,.86); --ink:#eaf2f7; --dim:#9fb4c4;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+  a{color:#6fd0ff}
+  /* top progress bar */
+  #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#46c78a,#39d0c8,#f2b24a,#e368b8);width:0;z-index:50}
+  /* intro / outro full-width blocks */
+  .hero{max-width:820px;margin:0 auto;padding:16vh 24px 8vh}
+  .hero h1{font-size:clamp(28px,5vw,46px);line-height:1.1;margin:0 0 16px;font-weight:700;letter-spacing:-.5px}
+  .hero .lede{font-size:clamp(16px,2.4vw,20px);color:var(--dim);max-width:640px}
+  .kick{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 14px}
+  .scrollcue{margin-top:40px;font-size:13px;color:var(--dim)}
+  .scrollcue span{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+  /* scrolly layout */
+  #scrolly{position:relative;max-width:1200px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);gap:24px}
+  #graphic{position:sticky;top:0;height:100vh;display:flex;align-items:center;justify-content:center}
+  #cv{width:100%;height:88vh;max-height:900px;border-radius:14px;background:#060d16;border:1px solid rgba(255,255,255,.08)}
+  /* overlay HUD on graphic */
+  #hud{position:absolute;left:18px;top:18px;right:18px;pointer-events:none}
+  #meter{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;max-width:300px}
+  #meter .lab{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:6px}
+  #meter .lab b{color:var(--ink)}
+  .track{height:12px;border-radius:6px;background:#2a3a49;overflow:hidden;display:flex}
+  .track .m{background:var(--measured);height:100%}
+  .track .r{background:repeating-linear-gradient(45deg,#3a4a59,#3a4a59 4px,#455767 4px,#455767 8px);height:100%;flex:1}
+  #meter .cap{font-size:10px;color:var(--dim);margin-top:6px}
+  #legend{position:absolute;left:18px;bottom:18px;display:flex;flex-wrap:wrap;gap:6px;max-width:60%}
+  .lc{font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(6,13,22,.8);display:flex;align-items:center;gap:5px}
+  .lc i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  #stageno{position:absolute;right:18px;bottom:18px;font-size:11px;color:var(--dim);background:rgba(6,13,22,.8);padding:4px 9px;border-radius:6px}
+  /* steps column */
+  #steps{padding:40vh 0}
+  .step{min-height:78vh;display:flex;flex-direction:column;justify-content:center;opacity:.35;transition:opacity .3s}
+  .step.on{opacity:1}
+  .step .card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-left-width:4px;border-radius:12px;padding:18px 20px}
+  .step .tag{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:10px}
+  .step h3{margin:0 0 8px;font-size:20px}
+  .step .n{color:var(--dim);font-weight:600;margin-right:6px}
+  .step p{margin:0 0 10px;font-size:15px;color:#dbe6ef}
+  .step .enters{font-size:12.5px;color:var(--dim);border-top:1px dashed rgba(255,255,255,.14);padding-top:9px}
+  .step .enters b{color:var(--ink)}
+  .cat-measured{border-left-color:var(--measured)} .cat-measured .tag{background:rgba(70,199,138,.18);color:var(--measured)}
+  .cat-contam{border-left-color:var(--contam)} .cat-contam .tag{background:rgba(239,106,90,.18);color:var(--contam)}
+  .cat-avg{border-left-color:var(--avg)} .cat-avg .tag{background:rgba(57,208,200,.18);color:var(--avg)}
+  .cat-infer{border-left-color:var(--infer)} .cat-infer .tag{background:rgba(242,178,74,.18);color:var(--infer)}
+  .cat-box{border-left-color:var(--box)} .cat-box .tag{background:rgba(227,104,184,.18);color:var(--box)}
+  .outro{max-width:760px;margin:0 auto;padding:10vh 24px 20vh}
+  .outro h2{font-size:clamp(22px,3.5vw,32px);margin:0 0 14px}
+  .outro p{color:#dbe6ef;font-size:16px}
+  .outro .tally{display:flex;gap:16px;flex-wrap:wrap;margin:22px 0}
+  .outro .tbox{flex:1;min-width:150px;background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px}
+  .outro .tbox .big{font-size:30px;font-weight:700}
+  .outro .tbox .sm{font-size:12px;color:var(--dim)}
+  .note{font-size:12.5px;color:var(--dim);font-style:italic;border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px}
+  @media(max-width:820px){
+    #scrolly{grid-template-columns:1fr}
+    #graphic{height:56vh;top:44vh}
+    #cv{height:52vh}
+    #steps{padding:8vh 0}
+    .step{min-height:64vh}
+    #legend{max-width:90%}
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<section class="hero">
+  <p class="kick">Kaswari AgTech · The Signal's Journey · companion to the soil-moisture explainer</p>
+  <h1>How a soil-moisture “measurement” is actually captured.</h1>
+  <p class="lede">A satellite never measures water in the ground. It catches a faint microwave glow, then a long chain of corrections, calibrations, removals and models turns that glow into the number in your file. Scroll to follow one signal — from wet soil near Ayutthaya all the way to a grid cell — and watch how much of it is still a <b>measurement</b> by the end.</p>
+  <p class="scrollcue"><span>↓</span> scroll to begin · worked example: SMAP, L-band radiometer</p>
+</section>
+
+<div id="scrolly">
+  <div id="graphic">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div id="meter">
+        <div class="lab"><span>Signal is still…</span><b id="purv">100% measurement</b></div>
+        <div class="track"><div class="m" id="mfill" style="width:100%"></div><div class="r"></div></div>
+        <div class="cap" id="mcap">a genuine physical signal — for now.</div>
+      </div>
+    </div>
+    <div id="legend">
+      <span class="lc"><i style="background:var(--measured)"></i>measured</span>
+      <span class="lc"><i style="background:var(--contam)"></i>contamination</span>
+      <span class="lc"><i style="background:var(--avg)"></i>averaging</span>
+      <span class="lc"><i style="background:var(--infer)"></i>inference / calibration</span>
+      <span class="lc"><i style="background:var(--box)"></i>black box</span>
+    </div>
+    <div id="stageno">—</div>
+  </div>
+
+  <div id="steps"></div>
+</div>
+
+<section class="outro">
+  <h2>So what did we actually measure?</h2>
+  <p>Every step above was necessary and, mostly, done well. But stack them up and the honest picture is that the delivered value is a <b>skilled inference</b>, not a reading off a dipstick. The instrument's genuine contribution — a calibrated microwave temperature — is real; almost everything that makes it <i>useful as soil moisture</i> is model, assumption, removal, and interpolation layered on top.</p>
+  <div class="tally">
+    <div class="tbox"><div class="big" style="color:var(--measured)">~1</div><div class="sm">genuine physical quantity measured (microwave brightness temperature)</div></div>
+    <div class="tbox"><div class="big" style="color:var(--infer)">~8</div><div class="sm">modelling, calibration & inference steps between it and “soil moisture”</div></div>
+    <div class="tbox"><div class="big" style="color:var(--box)">~10+</div><div class="sm">other datasets & models silently embedded (soil texture, land cover, weather-model temperature, dielectric constants, RFI thresholds…)</div></div>
+  </div>
+  <p>None of this means the data is bad — SMAP is superb. It means the number carries a <b>pedigree</b>, and using it well means knowing that pedigree: what was averaged, what was inferred, and what happened inside a box nobody opens.</p>
+  <p class="note">Worked for SMAP (L-band radiometer). Active sensors (ASCAT, Sentinel-1) capture data differently again — they transmit a pulse and read the echo, and SAR fakes a giant antenna from the satellite's own motion — a separate journey worth its own telling. Physics is standard textbook radiometry; exact figures (footprint, NEDT, revisit) are indicative and worth a subject-matter check before publication.</p>
+</section>
+
+<script>
+// ---------- stage data ----------
+const STAGES = [
+  { id:'emission', cat:'measured', tag:'measured · a proxy', title:'It starts as heat',
+    body:'Soil at temperature T radiates microwaves. The brightness temperature is emissivity × T — and emissivity falls as the soil gets wetter. So the raw signal isn’t moisture; it’s a thermal glow that moisture happens to dim.',
+    enters:'<b>Already a proxy</b>, and already blended with the vegetation’s own glow.', purity:92 },
+  { id:'propagate', cat:'contam', tag:'contamination', title:'The trip up adds junk',
+    body:'Climbing to orbit, the signal is attenuated and added-to by whatever grows on the surface, and at L-band the ionosphere twists its polarisation (Faraday rotation). Neither has anything to do with soil water.',
+    enters:'<b>Vegetation + ionosphere</b> ride along — both must be modelled out later.', purity:78 },
+  { id:'antenna', cat:'avg', tag:'averaging', title:'The dish sees a blur, not a point',
+    body:'SMAP’s 6-metre spinning mesh reflector collects an antenna-gain-weighted average tens of kilometres wide. Its sidelobes even pick up emission from far off-target — a lake in the next valley leaks in.',
+    enters:'The <b>footprint average</b> is born here, physically, with fuzzy edges and off-target leakage.', purity:62 },
+  { id:'receiver', cat:'contam', tag:'contamination · noise', title:'The electronics add jitter',
+    body:'In the receiver, thermal noise (~1.3 K, the “NEDT”) and slow gain drift ride along with every reading — an irreducible wobble baked in before any soil is inferred.',
+    enters:'<b>Instrument noise</b> — a floor on how precise any single sample can be.', purity:57 },
+  { id:'calibration', cat:'infer', tag:'inference · calibration', title:'Counts become kelvin — by model',
+    body:'Raw detector counts mean nothing until they’re mapped to temperature using onboard hot and cold references. That mapping is a calibration model with its own drift and uncertainty.',
+    enters:'<b>Brightness temperature</b> is itself a fitted, calibrated quantity — not a direct read.', purity:50 },
+  { id:'rfi', cat:'box', tag:'black box', title:'Interference is quietly deleted',
+    body:'L-band is legally protected but constantly polluted by illegal transmitters, radar and leakage. Detection algorithms flag and delete contaminated samples — invisibly. SMOS loses whole regions this way.',
+    enters:'What survives depends on <b>thresholds you never see</b>. Deletion is not neutral.', purity:43 },
+  { id:'geolocation', cat:'infer', tag:'inference', title:'Where was that, exactly?',
+    body:'Each reading is tagged with a latitude and longitude derived from the spacecraft’s position, its attitude, and the antenna’s pointing — every one with error.',
+    enters:'The footprint sits on the map <b>±a kilometre or two</b>.', purity:40 },
+  { id:'gridding', cat:'avg', tag:'averaging · interpolation', title:'The pixel is manufactured',
+    body:'Irregular, overlapping, fuzzy footprints are resampled onto a tidy 9-km grid (Backus-Gilbert optimal interpolation). The crisp square pixel you download never existed as a thing the instrument saw.',
+    enters:'The <b>“pixel” is an interpolation</b>, invented after the fact.', purity:33 },
+  { id:'retrieval', cat:'infer', tag:'inference', title:'Only now does “moisture” appear',
+    body:'A radiative-transfer model (the τ–ω model) is inverted to solve for moisture — feeding in an assumed vegetation optical depth, a roughness parameter, and a soil temperature borrowed from a weather model.',
+    enters:'Three <b>assumed inputs</b>, each an estimate, are required before a number falls out.', purity:27 },
+  { id:'dielectric', cat:'box', tag:'black box', title:'Permittivity → water, by fitted formula',
+    body:'The retrieval’s dielectric constant is turned into volumetric water with a semi-empirical mixing model (Mironov / Dobson) fitted to lab soils decades ago. It works; almost nobody derives it from first principles.',
+    enters:'A <b>lab-fitted curve</b> stands between physics and the final unit.', purity:22 },
+  { id:'assimilation', cat:'box', tag:'inference + black box', title:'The root zone is simulated',
+    body:'For the 0–100 cm root-zone product, surface retrievals are folded into a land-surface model by a Kalman filter. That deep number is a simulation nudged by observations — mostly model.',
+    enters:'The root zone is <b>never measured</b> — it is modelled, then corrected toward the surface obs.', purity:16 },
+];
+
+// ---------- build steps ----------
+const stepsEl = document.getElementById('steps');
+STAGES.forEach((s,i)=>{
+  const d=document.createElement('div');
+  d.className='step cat-'+s.cat; d.dataset.i=i;
+  d.innerHTML='<div class="card"><span class="tag">'+s.tag+'</span>'
+    +'<h3><span class="n">'+String(i+1).padStart(2,'0')+'</span>'+s.title+'</h3>'
+    +'<p>'+s.body+'</p><div class="enters">'+s.enters+'</div></div>';
+  stepsEl.appendChild(d);
+});
+
+// ---------- active-stage detection ----------
+let active=0, activeTarget=0;
+const steps=[...document.querySelectorAll('.step')];
+const io=new IntersectionObserver((ents)=>{
+  ents.forEach(e=>{ if(e.isIntersecting){ const i=+e.target.dataset.i; steps.forEach(s=>s.classList.toggle('on',+s.dataset.i===i)); activeTarget=i; } });
+},{rootMargin:'-45% 0px -45% 0px',threshold:0});
+steps.forEach(s=>io.observe(s));
+
+// progress bar
+addEventListener('scroll',()=>{ const h=document.documentElement; const p=h.scrollTop/(h.scrollHeight-h.clientHeight); document.getElementById('bar').style.width=(p*100)+'%'; },{passive:true});
+
+// ---------- canvas ----------
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+let W=0,H=0,DPR=Math.min(2,window.devicePixelRatio||1);
+function resize(){ const r=cv.getBoundingClientRect(); W=r.width; H=r.height; cv.width=W*DPR; cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); }
+addEventListener('resize',()=>{resize();}); resize();
+
+const CATCOL={measured:'#46c78a',contam:'#ef6a5a',avg:'#39d0c8',infer:'#f2b24a',box:'#e368b8'};
+function lerp(a,b,k){return a+(b-a)*k;}
+function ease(a,b,k){return a+(b-a)*Math.min(1,k);}
+
+// geometry of the column (fractions of H)
+const SAT_Y=0.11, IONO_Y=0.30, VEG_Y=0.74, SOIL_Y=0.80;
+let purAnim=100;
+
+function drawColumn(t){
+  // sky gradient: space (top) -> atmosphere -> ground
+  const sky=g.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#05070f'); sky.addColorStop(0.28,'#0a1526'); sky.addColorStop(0.55,'#12263b'); sky.addColorStop(0.78,'#20364a'); sky.addColorStop(1,'#2a2016');
+  g.fillStyle=sky; g.fillRect(0,0,W,H);
+  // stars
+  g.fillStyle='rgba(255,255,255,.5)';
+  for(let i=0;i<40;i++){ const x=(i*97.3)%W, y=((i*53.7)%(H*0.25)); const tw=0.3+0.7*Math.abs(Math.sin(t*1.3+i)); g.globalAlpha=tw*0.6; g.fillRect(x,y,1.5,1.5);} g.globalAlpha=1;
+  // ionosphere band
+  g.save(); g.globalAlpha=0.5;
+  const io=g.createLinearGradient(0,H*(IONO_Y-0.06),0,H*(IONO_Y+0.06));
+  io.addColorStop(0,'rgba(90,140,220,0)'); io.addColorStop(0.5,'rgba(120,170,255,.25)'); io.addColorStop(1,'rgba(90,140,220,0)');
+  g.fillStyle=io; g.fillRect(0,H*(IONO_Y-0.06),W,H*0.12); g.restore();
+  // ground / soil
+  const soil=g.createLinearGradient(0,H*SOIL_Y,0,H);
+  soil.addColorStop(0,'#7a5a34'); soil.addColorStop(0.35,'#5f4526'); soil.addColorStop(1,'#3c2e1c');
+  g.fillStyle=soil; g.fillRect(0,H*SOIL_Y,W,H*(1-SOIL_Y));
+  // moisture patches in soil
+  g.fillStyle='rgba(40,80,110,.5)';
+  for(let i=0;i<7;i++){ const x=(i*W/7)+((i*40)%30); g.beginPath(); g.ellipse(x, H*(SOIL_Y+0.09), 34, 12, 0,0,7); g.fill(); }
+  // vegetation tufts
+  g.strokeStyle='#3e7d43'; g.lineWidth=2;
+  for(let i=0;i<22;i++){ const x=8+i*(W/22); const yb=H*VEG_Y+8; const sw=Math.sin(t*1.2+i)*3;
+    g.beginPath(); g.moveTo(x,yb); g.quadraticCurveTo(x+sw,yb-14,x+sw*1.4,yb-24); g.stroke(); }
+  // satellite
+  drawSat(W*0.5,H*SAT_Y,t);
+}
+function drawSat(x,y,t){
+  g.save(); g.translate(x,y);
+  // solar panels
+  g.fillStyle='#25507a'; g.fillRect(-70,-6,44,12); g.fillRect(26,-6,44,12);
+  g.strokeStyle='#3a6fa0'; g.strokeRect(-70,-6,44,12); g.strokeRect(26,-6,44,12);
+  // body
+  g.fillStyle='#c9d4dd'; g.fillRect(-14,-12,28,24);
+  g.strokeStyle='#8ba0b2'; g.strokeRect(-14,-12,28,24);
+  // spinning dish (mesh reflector)
+  const sp=t*2.0; g.save(); g.translate(0,16); g.scale(1,0.5); g.rotate(sp*0.0+0);
+  g.fillStyle='rgba(180,210,235,.35)'; g.beginPath(); g.arc(0,0,20+Math.sin(sp)*1.5,0,7); g.fill();
+  g.strokeStyle='rgba(150,190,220,.7)'; g.lineWidth=1;
+  for(let a=0;a<6;a++){ g.beginPath(); g.moveTo(0,0); g.lineTo(Math.cos(a+sp)*20,Math.sin(a+sp)*20); g.stroke(); }
+  g.restore(); g.restore();
+}
+
+// a rising wave-packet from soil to satellite; alpha = strength
+function signalBeam(t,strength,color){
+  const x0=W*0.5, y0=H*SOIL_Y, y1=H*(SAT_Y+0.03);
+  g.save(); g.globalAlpha=strength; g.strokeStyle=color; g.lineWidth=2.4;
+  for(let k=0;k<3;k++){
+    g.beginPath();
+    for(let yy=y0; yy>y1; yy-=6){ const p=(y0-yy)/(y0-y1); const amp=10*(1-p*0.6); const xx=x0+Math.sin(p*18 - t*4 + k*2.1)*amp + (k-1)*10; if(yy===y0)g.moveTo(xx,yy); else g.lineTo(xx,yy); }
+    g.stroke();
+  }
+  g.restore();
+}
+function callout(x,y,txt,color){
+  g.font='600 12px -apple-system,Segoe UI,Roboto,sans-serif';
+  const w=g.measureText(txt).width+16;
+  g.fillStyle='rgba(6,13,22,.9)'; g.strokeStyle=color; g.lineWidth=1.5;
+  roundRect(x,y-11,w,22,6); g.fill(); g.stroke();
+  g.fillStyle='#fff'; g.textBaseline='middle'; g.fillText(txt,x+8,y+1);
+}
+function roundRect(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+
+// ---------- per-stage overlays ----------
+function overlay(id,t){
+  const cx=W*0.5;
+  switch(id){
+    case 'emission': {
+      signalBeam(t,0.9,'#ffd27a');
+      // emission arcs from soil points
+      g.strokeStyle='rgba(255,210,120,.7)';
+      for(let i=0;i<5;i++){ const x=cx-80+i*40; const ph=(t*1.5+i*0.5)%1.6; g.globalAlpha=Math.max(0,1-ph/1.6);
+        g.beginPath(); g.arc(x,H*SOIL_Y, 8+ph*40, Math.PI*1.15, Math.PI*1.85); g.stroke(); }
+      g.globalAlpha=1; callout(cx+30,H*(SOIL_Y-0.05),'emissivity × T  (falls as soil wets)','#46c78a');
+      break; }
+    case 'propagate': {
+      signalBeam(t,0.55,'#ffd27a');
+      callout(cx-150,H*(VEG_Y-0.02),'vegetation attenuates + adds','#ef6a5a');
+      // Faraday twist ticks in ionosphere
+      g.strokeStyle='#ef6a5a'; g.lineWidth=2;
+      for(let i=0;i<5;i++){ const y=H*(IONO_Y-0.03)+i*8; const a=t*2+i*0.6; g.beginPath(); g.moveTo(cx-14*Math.cos(a),y); g.lineTo(cx+14*Math.cos(a),y); g.stroke(); }
+      callout(cx+22,H*IONO_Y,'ionosphere rotates polarisation','#ef6a5a');
+      break; }
+    case 'antenna': {
+      // beam cone to fuzzy footprint
+      g.fillStyle='rgba(57,208,200,.14)'; g.beginPath(); g.moveTo(cx,H*(SAT_Y+0.03)); g.lineTo(cx-120,H*SOIL_Y); g.lineTo(cx+120,H*SOIL_Y); g.closePath(); g.fill();
+      // fuzzy footprint ellipse
+      const fg=g.createRadialGradient(cx,H*(SOIL_Y+0.02),10,cx,H*(SOIL_Y+0.02),130);
+      fg.addColorStop(0,'rgba(57,208,200,.5)'); fg.addColorStop(1,'rgba(57,208,200,0)');
+      g.fillStyle=fg; g.beginPath(); g.ellipse(cx,H*(SOIL_Y+0.02),130,26,0,0,7); g.fill();
+      // sidelobe to a lake off-target
+      g.fillStyle='rgba(90,150,210,.5)'; g.beginPath(); g.ellipse(cx+200,H*(SOIL_Y+0.05),42,10,0,0,7); g.fill();
+      g.strokeStyle='rgba(239,106,90,.8)'; g.setLineDash([4,3]); g.beginPath(); g.moveTo(cx,H*(SAT_Y+0.03)); g.lineTo(cx+200,H*(SOIL_Y+0.03)); g.stroke(); g.setLineDash([]);
+      callout(cx-130,H*(SOIL_Y-0.02),'antenna-weighted average ~tens of km','#39d0c8');
+      callout(cx+120,H*(SOIL_Y-0.06),'sidelobe: off-target leaks in','#ef6a5a');
+      break; }
+    case 'receiver': {
+      signalBeam(t,0.5,'#cfe');
+      // noise inset near satellite
+      const bx=cx+40,by=H*(SAT_Y+0.10);
+      g.strokeStyle='#ef6a5a'; g.lineWidth=1.5; g.beginPath();
+      for(let i=0;i<90;i++){ const xx=bx+i; const yy=by+Math.sin(i*0.5)*4+(Math.sin(i*7.1+t*10))*5; if(i===0)g.moveTo(xx,yy); else g.lineTo(xx,yy);} g.stroke();
+      callout(bx,by-26,'+ thermal noise (~1.3 K)','#ef6a5a');
+      break; }
+    case 'calibration': {
+      const y=H*(SAT_Y+0.12);
+      g.fillStyle='#ef6a5a'; roundRect(cx-140,y,26,20,5); g.fill();
+      g.fillStyle='#6fb3ff'; roundRect(cx-104,y,26,20,5); g.fill();
+      g.fillStyle='#fff'; g.font='10px sans-serif'; g.textBaseline='middle'; g.fillText('hot',cx-137,y+10); g.fillText('cold',cx-102,y+10);
+      g.strokeStyle='#f2b24a'; g.lineWidth=2; g.beginPath(); g.moveTo(cx-72,y+10); g.lineTo(cx-20,y+10); g.stroke();
+      // arrowhead
+      g.beginPath(); g.moveTo(cx-20,y+10); g.lineTo(cx-28,y+6); g.lineTo(cx-28,y+14); g.closePath(); g.fillStyle='#f2b24a'; g.fill();
+      callout(cx-16,y+10,'counts → kelvin (a fitted model)','#f2b24a');
+      break; }
+    case 'rfi': {
+      signalBeam(t,0.45,'#cfe');
+      // spectrum with spikes, some flagged
+      const y=H*(SAT_Y+0.16), x0=cx-140;
+      g.strokeStyle='rgba(255,255,255,.4)'; g.beginPath(); g.moveTo(x0,y); g.lineTo(x0+280,y); g.stroke();
+      const spikes=[30,70,120,175,230];
+      spikes.forEach((sx,i)=>{ const hgt=18+((i*53)%26); const flagged=i%2===0;
+        g.strokeStyle=flagged?'#e368b8':'#8fd0ff'; g.lineWidth=2; g.beginPath(); g.moveTo(x0+sx,y); g.lineTo(x0+sx,y-hgt); g.stroke();
+        if(flagged){ g.strokeStyle='#e368b8'; g.beginPath(); g.moveTo(x0+sx-6,y-hgt-6); g.lineTo(x0+sx+6,y-hgt+0); g.moveTo(x0+sx+6,y-hgt-6); g.lineTo(x0+sx-6,y-hgt+0); g.stroke(); } });
+      callout(x0,y+16,'RFI spikes flagged & deleted (thresholds unseen)','#e368b8');
+      break; }
+    case 'geolocation': {
+      signalBeam(t,0.4,'#cfe');
+      const gx=cx, gy=H*(SOIL_Y+0.02);
+      g.strokeStyle='#f2b24a'; g.lineWidth=1.5; g.beginPath(); g.moveTo(gx-30,gy); g.lineTo(gx+30,gy); g.moveTo(gx,gy-20); g.lineTo(gx,gy+20); g.stroke();
+      g.setLineDash([4,3]); g.beginPath(); g.arc(gx,gy,34,0,7); g.stroke(); g.setLineDash([]);
+      callout(gx+40,gy,'lat/lon ±1–2 km','#f2b24a');
+      break; }
+    case 'gridding': {
+      // fuzzy ellipses -> crisp grid
+      for(let i=0;i<5;i++){ const x=cx-150+i*70; g.fillStyle='rgba(57,208,200,.18)'; g.beginPath(); g.ellipse(x,H*(SOIL_Y-0.02),46,16,0,0,7); g.fill(); }
+      g.strokeStyle='#39d0c8'; g.lineWidth=1;
+      for(let i=0;i<6;i++){ for(let j=0;j<2;j++){ const x=cx-150+i*52, y=H*(SOIL_Y+0.02)+j*26; g.strokeRect(x,y,50,24); } }
+      callout(cx-150,H*(SOIL_Y+0.11),'resampled to a 9-km grid it never saw','#39d0c8');
+      break; }
+    case 'retrieval': {
+      const bx=cx-70,by=H*(SAT_Y+0.20);
+      g.fillStyle='rgba(242,178,74,.14)'; g.strokeStyle='#f2b24a'; g.lineWidth=1.5; roundRect(bx,by,140,54,8); g.fill(); g.stroke();
+      g.fillStyle='#fff'; g.font='11px sans-serif'; g.textBaseline='middle'; g.fillText('τ–ω inversion',bx+12,by+16);
+      g.fillStyle='#f2b24a'; g.font='10px sans-serif'; g.fillText('+ VOD  + roughness  + T_soil',bx+12,by+36);
+      callout(bx-4,by-16,'assumed inputs, each an estimate','#f2b24a');
+      break; }
+    case 'dielectric': {
+      // permittivity->water curve
+      const bx=cx-90,by=H*(SAT_Y+0.24),bw=180,bh=70;
+      g.strokeStyle='rgba(255,255,255,.3)'; g.strokeRect(bx,by,bw,bh);
+      g.strokeStyle='#e368b8'; g.lineWidth=2; g.beginPath();
+      for(let i=0;i<=bw;i++){ const p=i/bw; const yy=by+bh-(Math.pow(p,0.6))*bh; if(i===0)g.moveTo(bx+i,yy); else g.lineTo(bx+i,yy);} g.stroke();
+      g.fillStyle='#9fb4c4'; g.font='9px sans-serif'; g.fillText('permittivity',bx+bw-58,by+bh+10); g.save(); g.translate(bx-6,by+bh-4); g.rotate(-Math.PI/2); g.fillText('water',0,0); g.restore();
+      callout(bx,by-14,'lab-fitted mixing model (Mironov/Dobson)','#e368b8');
+      break; }
+    case 'assimilation': {
+      // surface obs + model -> profile
+      const bx=cx-60,by=H*(SAT_Y+0.24);
+      g.fillStyle='#46c78a'; g.beginPath(); g.arc(bx,by,7,0,7); g.fill(); g.fillStyle='#fff'; g.font='9px sans-serif'; g.fillText('surface obs',bx+12,by+3);
+      g.strokeStyle='#e368b8'; g.lineWidth=2; g.beginPath(); g.moveTo(bx,by+14); g.lineTo(bx,by+80); g.stroke();
+      g.fillStyle='rgba(227,104,184,.18)'; g.fillRect(bx-18,by+14,36,66);
+      callout(bx+26,by+50,'0–100 cm = model, nudged by obs','#e368b8');
+      break; }
+  }
+}
+
+// ---------- loop ----------
+let last=performance.now();
+function frame(now){
+  const t=now/1000; g.clearRect(0,0,W,H);
+  // ease active
+  active += (activeTarget-active)*0.15;
+  const idx=Math.round(activeTarget);
+  const s=STAGES[idx]||STAGES[0];
+  drawColumn(t);
+  overlay(s.id,t);
+  // meter
+  purAnim += (s.purity-purAnim)*0.12;
+  document.getElementById('mfill').style.width=purAnim.toFixed(1)+'%';
+  document.getElementById('purv').textContent=Math.round(purAnim)+'% measurement';
+  document.getElementById('mcap').textContent = purAnim>70?'a genuine physical signal — for now.'
+    : purAnim>45?'still physical, but contamination and calibration are creeping in.'
+    : purAnim>25?'now more model and removal than raw measurement.'
+    : 'mostly inference, interpolation, and empirical conversion.';
+  document.getElementById('stageno').textContent='step '+(idx+1)+' / '+STAGES.length+' · '+s.tag;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Uncertainty Waterfall — the error budget of a soil-moisture retrieval</title>
+<style>
+  :root{--bar:#4aa3d0;--barhi:#7fd8ff;--req:#f2b24a;--over:#e0724a;--bg:#0b1420;--panel:rgba(13,24,36,.92);--ink:#eaf2f7;--dim:#9fb4c4;--grid:rgba(255,255,255,.09)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 4px;max-width:1360px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,27px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:940px}
+  .wrap{max-width:1360px;margin:0 auto;padding:8px 16px 30px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
+  .stage{position:relative;background:#070f19;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px 10px 4px}
+  svg{width:100%;height:auto;display:block;font-family:inherit}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px}
+  .box h3{margin:0 0 10px;font-size:13px}
+  .ctrls{display:flex;flex-direction:column;gap:8px}
+  .seg{display:flex;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;padding:8px;border:0;background:transparent;color:var(--dim);font-size:12px;font-weight:600;cursor:pointer}
+  .seg button.on{background:#26465f;color:#fff}
+  .row2{display:flex;gap:8px}
+  .row2 button{flex:1;padding:7px;border:0;border-radius:7px;background:#333f4c;color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+  .hint{font-size:11px;color:var(--dim);font-style:italic}
+  #read .t{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--bar);margin-bottom:6px}
+  #read h4{margin:0 0 6px;font-size:15px}
+  #read p{margin:0;font-size:12.5px;color:#dbe6ef;line-height:1.5}
+  #read .num{font-variant-numeric:tabular-nums;color:#fff;font-weight:700}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+  .legend div{display:flex;align-items:center;gap:8px}
+  .legend i{width:14px;height:10px;border-radius:3px;flex:0 0 auto}
+  .legend i.line{height:0;border-top:2px dashed var(--req);border-radius:0}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  th,td{text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.08)}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  #tableWrap{display:none}
+  .tip{position:fixed;pointer-events:none;background:rgba(6,13,22,.96);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:8px 10px;font-size:11.5px;opacity:0;transition:opacity .1s;z-index:40;max-width:230px}
+  .tip b{color:#fff}
+  .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--dim);font-size:12px;font-style:italic}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · Uncertainty waterfall · companion to the soil-moisture explainer</p>
+  <h1>The error budget of one soil-moisture number</h1>
+  <p>Start from perfect truth and add each source of error. Because the errors are largely independent they combine <b>in quadrature</b> (variances add, not standard deviations), so the total climbs fast then flattens — landing right at the mission requirement of <b>0.04 m³/m³</b>. Click a bar to remove that source; switch to “fully correlated” to see how much the independence assumption is doing.</p>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 900 540" preserveAspectRatio="xMidYMid meet" aria-label="Uncertainty waterfall chart"></svg>
+    <div id="tableWrap" style="padding:6px 10px 12px">
+      <table id="tbl"><thead><tr><th>Error source</th><th class="n">σ (m³/m³)</th><th class="n">variance share</th><th class="n">cumulative RMSE</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <h3>Combine errors as</h3>
+      <div class="ctrls">
+        <div class="seg"><button id="mQuad" class="on">independent (quadrature)</button><button id="mLin">fully correlated (sum)</button></div>
+        <div class="row2"><button id="btnTable">Table view</button><button id="btnReset">Reset sources</button></div>
+        <span class="hint">Click any bar in the chart to toggle that error source on/off.</span>
+      </div>
+    </div>
+    <div class="box legend">
+      <div><i style="background:var(--bar)"></i> per-source contribution</div>
+      <div><i style="background:var(--barhi)"></i> delivered total (RMSE)</div>
+      <div><i class="line"></i> mission requirement · 0.04</div>
+      <div><i style="background:var(--over)"></i> budget overrun</div>
+    </div>
+    <div class="box" id="read">
+      <div class="t" id="rtag">how to read this</div>
+      <h4 id="rttl">A budget with no slack</h4>
+      <p id="rdesc">Each step adds one error source in quadrature. Hover a bar for its numbers. The whole budget adds up to essentially the entire 0.04 requirement — there is almost no margin, and vegetation alone is the biggest single piece.</p>
+    </div>
+  </div>
+</div>
+<p class="foot">Anchor value (unbiased RMSE ≤ 0.04 m³/m³) is the published SMAP mission requirement; per-source contributions are a representative decomposition for illustration — real magnitudes vary by land cover and study, and are worth a subject-matter check before publication. Systematic biases are separately removed by rescaling (CDF-matching to a reference climatology), so this is an <i>unbiased</i> RMSE; that rescaling borrows its own assumptions.</p>
+
+<script>
+// per-source soil-moisture error contributions (σ, m³/m³) — representative
+const SRC=[
+  {id:'veg',   label:'Vegetation (VWC · τ · ω)',        s:0.025, d:'Correcting for vegetation opacity and scattering — the single largest error, and it grows with biomass.'},
+  {id:'rough', label:'Surface roughness',               s:0.015, d:'A roughness parameter fixed per land-cover class; real roughness varies field to field.'},
+  {id:'repr',  label:'Spatial representativeness',      s:0.015, d:'A 9-km footprint vs a point: sub-pixel heterogeneity the single value cannot capture.'},
+  {id:'temp',  label:'Effective soil temperature',      s:0.012, d:'Borrowed from a weather model; it scales the whole brightness-temperature signal.'},
+  {id:'tex',   label:'Soil texture · dielectric model', s:0.012, d:'Static sand/clay maps plus the lab-fitted Mironov mixing model converting permittivity to water.'},
+  {id:'algo',  label:'Retrieval / algorithm structure', s:0.010, d:'Structural error in inverting the τ–ω model — the choice of algorithm and its simplifications.'},
+  {id:'nedt',  label:'Radiometer noise (NEDT)',         s:0.008, d:'Thermal noise of the receiver, about 1.3 K per sample.'},
+  {id:'cal',   label:'Tb calibration',                  s:0.008, d:'Residual error in mapping detector counts to brightness temperature.'},
+  {id:'rfi',   label:'RFI residual',                    s:0.008, d:'What survives interference detection and removal at L-band.'},
+];
+const REQ=0.04;
+let mode='quad'; // or 'lin'
+const off=new Set();
+
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('svg');
+function E(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+const M={l:56,r:18,t:20,b:96}, VW=900, VH=540;
+const plotW=VW-M.l-M.r, plotH=VH-M.t-M.b;
+
+function activeSrc(){return SRC.filter(s=>!off.has(s.id));}
+function totals(){
+  const a=activeSrc();
+  const quad=Math.sqrt(a.reduce((z,s)=>z+s.s*s.s,0));
+  const lin=a.reduce((z,s)=>z+s.s,0);
+  return {quad,lin};
+}
+function cumSeq(){ // returns array of {src, prev, cum} in current mode
+  const a=activeSrc(); let out=[]; let cvar=0, csum=0;
+  a.forEach(s=>{ if(mode==='quad'){const prev=Math.sqrt(cvar); cvar+=s.s*s.s; const cum=Math.sqrt(cvar); out.push({s,prev,cum});}
+    else {const prev=csum; csum+=s.s; out.push({s,prev,cum:csum});} });
+  return out;
+}
+
+let tip=document.createElement('div'); tip.className='tip'; document.body.appendChild(tip);
+function showTip(html,x,y){tip.innerHTML=html;tip.style.left=(x+14)+'px';tip.style.top=(y+14)+'px';tip.style.opacity=1;}
+function hideTip(){tip.style.opacity=0;}
+
+function render(){
+  while(svg.firstChild)svg.removeChild(svg.firstChild);
+  const seq=cumSeq(); const tot=totals();
+  const total=mode==='quad'?tot.quad:tot.lin;
+  const yMax = mode==='quad' ? 0.05 : Math.max(0.12, Math.ceil(total*10)/10+0.02);
+  const y=v=>M.t+plotH-(v/yMax)*plotH;
+  // columns: [true] + sources(all, even off shown greyed) + [delivered]
+  const cols=SRC.length+2, slot=plotW/cols;
+  const cx=i=>M.l+slot*(i+0.5), bw=Math.min(46,slot*0.6);
+
+  // gridlines + y ticks
+  const step=mode==='quad'?0.01:0.02;
+  for(let v=0;v<=yMax+1e-9;v+=step){
+    svg.appendChild(E('line',{x1:M.l,y1:y(v),x2:M.l+plotW,y2:y(v),stroke:'rgba(255,255,255,.08)','stroke-width':1}));
+    const tx=E('text',{x:M.l-8,y:y(v)+4,fill:'#9fb4c4','font-size':11,'text-anchor':'end'});tx.textContent=v.toFixed(2);svg.appendChild(tx);
+  }
+  // y axis label
+  const yl=E('text',{x:16,y:M.t+plotH/2,fill:'#9fb4c4','font-size':12,'text-anchor':'middle',transform:`rotate(-90 16 ${M.t+plotH/2})`});yl.textContent='soil-moisture error  (m³/m³, RMSE)';svg.appendChild(yl);
+
+  // requirement line
+  if(REQ<=yMax){ svg.appendChild(E('line',{x1:M.l,y1:y(REQ),x2:M.l+plotW,y2:y(REQ),stroke:'#f2b24a','stroke-width':2,'stroke-dasharray':'6 4'}));
+    const rl=E('text',{x:M.l+plotW,y:y(REQ)-6,fill:'#f2b24a','font-size':11,'text-anchor':'end','font-weight':600});rl.textContent='mission requirement 0.04';svg.appendChild(rl); }
+
+  // start marker (true SM = 0)
+  svg.appendChild(E('circle',{cx:cx(0),cy:y(0),r:5,fill:'#46c78a'}));
+  addXlabel(0,'True soil','moisture');
+
+  // floating bars
+  seq.forEach((d,k)=>{
+    const i=SRC.indexOf(d.s);
+    const x=cx(i+1)-bw/2;
+    const yTop=y(d.cum), yBot=y(d.prev);
+    const h=Math.max(1.5,yBot-yTop);
+    // connector from previous cum level
+    const prevX = k===0? cx(0) : cx(SRC.indexOf(seq[k-1].s)+1);
+    svg.appendChild(E('line',{x1:prevX,y1:y(d.prev),x2:x+bw,y2:y(d.prev),stroke:'rgba(255,255,255,.22)','stroke-width':1,'stroke-dasharray':'2 3'}));
+    const overReq = d.cum>REQ && d.prev<REQ;
+    const bar=E('rect',{x,y:yTop,width:bw,height:h,rx:4,fill:'#4aa3d0',opacity:0.95,style:'cursor:pointer'});
+    svg.appendChild(bar);
+    // overrun cap
+    if(d.cum>REQ){ const capTop=y(d.cum), capBot=Math.min(yBot,y(REQ)); if(capBot>capTop){ svg.appendChild(E('rect',{x,y:capTop,width:bw,height:Math.max(1,capBot-capTop),rx:4,fill:'#e0724a',opacity:0.9,style:'pointer-events:none'})); } }
+    // marker dot at cum
+    svg.appendChild(E('circle',{cx:x+bw/2,cy:yTop,r:3,fill:'#eaf2f7',style:'pointer-events:none'}));
+    addXlabel(i+1, d.s.label, null, true);
+    const varShare=(d.s.s*d.s.s)/SRC.reduce((z,s)=>z+s.s*s.s,0);
+    const hover=()=>showTipEv(d,varShare);
+    bar.addEventListener('mousemove',ev=>showTip(`<b>${d.s.label}</b><br>σ = <b>${d.s.s.toFixed(3)}</b> m³/m³<br>variance share (all on): <b>${Math.round(varShare*100)}%</b><br>cumulative RMSE: <b>${d.cum.toFixed(3)}</b>`,ev.clientX,ev.clientY));
+    bar.addEventListener('mouseleave',hideTip);
+    bar.addEventListener('click',()=>{ off.has(d.s.id)?off.delete(d.s.id):off.add(d.s.id); render(); });
+  });
+
+  // grey stubs for switched-off sources
+  SRC.forEach((s,i)=>{ if(off.has(s.id)){ const x=cx(i+1)-bw/2; svg.appendChild(E('rect',{x,y:y(0.002),width:bw,height:2,rx:1,fill:'#3a4a58',style:'cursor:pointer'})).addEventListener('click',()=>{off.delete(s.id);render();}); addXlabel(i+1,s.label,null,true,true);} });
+
+  // delivered total bar
+  const dx=cx(cols-1)-bw/2;
+  svg.appendChild(E('rect',{x:dx,y:y(total),width:bw,height:plotH+M.t-y(total),rx:4,fill:'#7fd8ff',opacity:0.95,style:'cursor:pointer'}));
+  if(total>REQ){ svg.appendChild(E('rect',{x:dx,y:y(total),width:bw,height:y(REQ)-y(total),rx:4,fill:'#e0724a',opacity:0.85,style:'pointer-events:none'})); }
+  const tv=E('text',{x:dx+bw/2,y:y(total)-8,fill:'#fff','font-size':13,'text-anchor':'middle','font-weight':700});tv.textContent=total.toFixed(3);svg.appendChild(tv);
+  addXlabel(cols-1,'Delivered','RMSE');
+
+  updateRead(total,tot);
+  buildTable(seq);
+}
+function addXlabel(i,l1,l2,rot,dim){
+  const cols=SRC.length+2, slot=plotW/cols, x=M.l+slot*(i+0.5);
+  const fill=dim?'#5a6c7a':'#c3d2de';
+  if(rot){ const t=E('text',{x,y:M.t+plotH+14,fill,'font-size':10,'text-anchor':'end',transform:`rotate(-35 ${x} ${M.t+plotH+14})`});t.textContent=l1;svg.appendChild(t); }
+  else { const t=E('text',{x,y:M.t+plotH+18,fill,'font-size':11,'text-anchor':'middle','font-weight':600});t.textContent=l1;svg.appendChild(t);
+    if(l2){const t2=E('text',{x,y:M.t+plotH+31,fill,'font-size':11,'text-anchor':'middle','font-weight':600});t2.textContent=l2;svg.appendChild(t2);} }
+}
+function updateRead(total,tot){
+  const veg=SRC.find(s=>s.id==='veg'); const totVar=SRC.reduce((z,s)=>z+s.s*s.s,0);
+  document.getElementById('rttl').textContent = total>REQ?'Over budget':'Inside the budget — barely';
+  let msg;
+  if(mode==='lin'){ msg=`If the errors were <b>fully correlated</b>, they would simply add: <span class="num">${tot.lin.toFixed(3)}</span> m³/m³ — about <span class="num">${(tot.lin/REQ).toFixed(1)}×</span> the requirement. Independence is doing enormous work.`; }
+  else { msg=`Combined in quadrature the total is <span class="num">${tot.quad.toFixed(3)}</span> m³/m³ against a <span class="num">0.040</span> requirement — essentially no margin. Vegetation alone is <span class="num">${Math.round(veg.s*veg.s/totVar*100)}%</span> of the variance.`; }
+  document.getElementById('rdesc').innerHTML=msg;
+  document.getElementById('rtag').textContent = off.size? (off.size+' source'+(off.size>1?'s':'')+' removed') : 'full budget';
+}
+function buildTable(seq){
+  const tb=document.querySelector('#tbl tbody'); tb.innerHTML='';
+  const totVar=SRC.reduce((z,s)=>z+(off.has(s.id)?0:s.s*s.s),0);
+  seq.forEach(d=>{ const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.s.label}</td><td class="n">${d.s.s.toFixed(3)}</td><td class="n">${Math.round(d.s.s*d.s.s/totVar*100)}%</td><td class="n">${d.cum.toFixed(3)}</td>`; tb.appendChild(tr); });
+}
+function showTipEv(){}
+
+document.getElementById('mQuad').onclick=()=>{mode='quad';document.getElementById('mQuad').classList.add('on');document.getElementById('mLin').classList.remove('on');render();};
+document.getElementById('mLin').onclick=()=>{mode='lin';document.getElementById('mLin').classList.add('on');document.getElementById('mQuad').classList.remove('on');render();};
+document.getElementById('btnReset').onclick=()=>{off.clear();render();};
+document.getElementById('btnTable').onclick=function(){const w=document.getElementById('tableWrap');const on=w.style.display!=='block';w.style.display=on?'block':'none';this.textContent=on?'Hide table':'Table view';};
+
+render();
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

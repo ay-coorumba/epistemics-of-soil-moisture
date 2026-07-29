@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Ground Truth vs Satellite — what "validated" really means</title>
+<style>
+  :root{--bg:#0b1420;--panel:rgba(13,24,36,.92);--ink:#eaf2f7;--dim:#9fb4c4;--sat:#4aa3d0;--rep:#e0a074;--pt:#6fd0ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 4px;max-width:1360px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,27px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:960px}
+  .wrap{max-width:1360px;margin:0 auto;padding:8px 16px 30px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
+  .panels{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:14px}
+  .mp{background:#070f19;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px}
+  .mp h3{margin:0 0 8px;font-size:12.5px;display:flex;justify-content:space-between;align-items:baseline}
+  .mp h3 span{color:var(--dim);font-weight:400;font-size:11px}
+  .cvwrap{position:relative}
+  canvas{width:100%;height:auto;display:block;border-radius:8px}
+  .scaletag{font-size:10.5px;color:var(--dim);margin-top:8px;line-height:1.5}
+  .scaletag b{color:var(--ink)}
+  svg{width:100%;height:auto;display:block}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px}
+  .box h3{margin:0 0 10px;font-size:13px}
+  .sl{font-size:12px;color:var(--dim);margin:12px 0 3px;display:flex;justify-content:space-between}
+  .sl b{color:#6fd0ff}
+  input[type=range]{width:100%}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tile{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:9px}
+  .tile .k{font-size:10px;color:var(--dim);line-height:1.3}
+  .tile .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .decomp{margin-top:10px}
+  .decomp .lbl{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin:6px 0 3px}
+  .decomp .bar{height:14px;border-radius:7px;background:#1c2b38;overflow:hidden;display:flex}
+  .decomp .bar i{height:100%}
+  #msg{font-size:12.5px;color:#dbe6ef;line-height:1.55;margin-top:4px}
+  #msg b{color:#fff}
+  .legend{display:flex;gap:12px;font-size:11px;color:var(--dim);margin-top:6px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--dim);font-size:12px;font-style:italic}
+  .tip{position:fixed;pointer-events:none;background:rgba(6,13,22,.96);border:1px solid rgba(255,255,255,.18);border-radius:7px;padding:6px 9px;font-size:11px;opacity:0;transition:.1s;z-index:40}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}.panels{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · Ground truth vs satellite · companion to the soil-moisture explainer</p>
+  <h1>What “validated” really means</h1>
+  <p>A satellite pixel is “validated” by comparing it to probes in the ground. But a probe samples a few cm³ at one spot, while the pixel averages ~81 km². They don’t measure the same thing — so much of the “error” in a validation isn’t the satellite being wrong, it’s the probe failing to represent the pixel. Add probes and watch the real satellite error emerge from underneath the mismatch.</p>
+</header>
+
+<div class="wrap">
+  <div class="panels">
+    <div class="mp">
+      <h3>One pixel, up close <span>9 km · 81 km²</span></h3>
+      <div class="cvwrap"><canvas id="field" width="300" height="300"></canvas></div>
+      <div class="scaletag" id="scaletag"></div>
+      <div class="legend"><span><i style="background:#d8c69a"></i>drier</span><span><i style="background:#255a9a"></i>wetter</span><span><i style="background:#fff;border-radius:50%"></i>probe</span></div>
+    </div>
+    <div class="mp">
+      <h3>Validation scatter <span id="scsub">satellite vs reference · 60 days</span></h3>
+      <svg id="scatter" viewBox="0 0 460 340"></svg>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <h3>The validation setup</h3>
+      <div class="sl"><span>Probes in the pixel</span><b id="nv">1</b></div><input type="range" id="n" min="1" max="60" value="1">
+      <div class="sl"><span>Sub-pixel heterogeneity σ</span><b id="hv"></b></div><input type="range" id="h" min="10" max="90" value="55">
+      <div class="sl"><span>True satellite error σ</span><b id="sv"></b></div><input type="range" id="s" min="10" max="60" value="32">
+    </div>
+    <div class="box">
+      <h3>What a validation would report</h3>
+      <div class="tiles">
+        <div class="tile"><div class="k">Apparent RMSE<br>(satellite vs probes)</div><div class="v" id="tApp">–</div></div>
+        <div class="tile"><div class="k">True satellite error<br>(vs the real pixel mean)</div><div class="v" id="tSat" style="color:var(--sat)">–</div></div>
+      </div>
+      <div class="decomp">
+        <div class="lbl"><span>apparent error² =</span><span id="dsplit"></span></div>
+        <div class="bar" id="dbar"></div>
+        <div class="legend"><span><i style="background:var(--sat)"></i>satellite error</span><span><i style="background:var(--rep)"></i>representativeness (probe vs pixel)</span></div>
+      </div>
+    </div>
+    <div class="box"><p id="msg"></p></div>
+  </div>
+</div>
+<p class="foot">A statistical teaching model: the network estimate of the pixel mean has standard error σ_hetero/√n, so apparent validation RMSE ≈ √(σ_sat² + σ_hetero²/n). Values are illustrative. In reality the true pixel mean is never known, which is why methods like triple collocation estimate satellite error without treating any reference as truth.</p>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+function hash(i){ const x=Math.sin(i*127.1+311.7)*43758.5453; return x-Math.floor(x); }
+function zn(i){ return (hash(i)+hash(i+91)+hash(i+733)-1.5)*2.0; } // ~N(0,1)
+// ---- fixed synthetic truth: 60-day pixel-mean series ----
+const DAYS=60, tmean=new Float32Array(DAYS);
+for(let d=0;d<DAYS;d++){ let v=0.13+0.13*Math.exp(-d/45); // slow dry-down
+  v+=0.14*Math.exp(-Math.pow((d-16)/4,2)); // rain event
+  v+=0.16*Math.exp(-Math.pow((d-40)/5,2)); // rain event
+  v+=0.015*Math.sin(d*0.9); tmean[d]=Math.max(0.05,Math.min(0.45,v)); }
+const zSat=[],zRef=[]; for(let d=0;d<DAYS;d++){ zSat.push(zn(d+5)); zRef.push(zn(d+900)); }
+// probe fixed positions & persistent offsets (unit-normal), for the spatial panel
+const P=[]; for(let p=0;p<60;p++){ P.push({x:hash(p+1)*0.86+0.07, y:hash(p+400)*0.86+0.07, z:zn(p+50)}); }
+
+let nP=1, sigH=0.055, sigS=0.032;
+const field=document.getElementById('field'), fx=field.getContext('2d');
+const NXF=60;
+function moistColor(m){ const t=Math.max(0,Math.min(1,(m-0.05)/0.35));
+  const s=[[216,198,154],[143,174,134],[79,147,184],[37,90,154]];
+  const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),f=p-i; return [0,1,2].map(c=>s[i][c]+(s[i+1][c]-s[i][c])*f); }
+function drawField(){
+  // heterogeneous true field around a representative day's mean (use day 30)
+  const base=tmean[30]; const img=fx.createImageData(NXF,NXF);
+  for(let j=0;j<NXF;j++)for(let i=0;i<NXF;i++){ const x=i/NXF,y=j/NXF;
+    // smooth spatial variability
+    let v=base + sigH*1.6*( Math.sin(x*7+1)*Math.cos(y*6) + 0.6*Math.sin(x*15+y*11) )*0.6;
+    const c=moistColor(v); const o=(j*NXF+i)*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
+  // render scaled
+  const tmp=document.createElement('canvas'); tmp.width=NXF;tmp.height=NXF; tmp.getContext('2d').putImageData(img,0,0);
+  fx.imageSmoothingEnabled=true; fx.clearRect(0,0,300,300); fx.drawImage(tmp,0,0,300,300);
+  // probes
+  for(let p=0;p<nP;p++){ const pr=P[p]; const px=pr.x*300, py=pr.y*300;
+    const v=tmean[30]+sigH*pr.z; const c=moistColor(v);
+    fx.beginPath(); fx.arc(px,py,4.5,0,7); fx.fillStyle='rgb('+c[0]+','+c[1]+','+c[2]+')'; fx.fill();
+    fx.lineWidth=1.5; fx.strokeStyle='#fff'; fx.stroke(); }
+  // scale bar
+  fx.fillStyle='rgba(6,13,22,.75)'; fx.fillRect(8,278,150,16); fx.strokeStyle='#fff'; fx.lineWidth=1; fx.beginPath(); fx.moveTo(14,286);fx.lineTo(60,286);fx.stroke();
+  fx.fillStyle='#eaf2f7'; fx.font='10px sans-serif'; fx.fillText('≈ 3 km',64,289);
+}
+function computeStats(){
+  const seRef=sigH/Math.sqrt(nP);
+  let seApp=0, seSat=0;
+  const pts=[];
+  for(let d=0;d<DAYS;d++){ const sat=tmean[d]+sigS*zSat[d]; const ref=tmean[d]+seRef*zRef[d];
+    seApp+=(sat-ref)*(sat-ref); seSat+=(sat-tmean[d])*(sat-tmean[d]); pts.push({d,sat,ref}); }
+  return {app:Math.sqrt(seApp/DAYS), sat:Math.sqrt(seSat/DAYS), rep:seRef, pts};
+}
+let tip=document.createElement('div'); tip.className='tip'; document.body.appendChild(tip);
+function drawScatter(st){
+  const svg=document.getElementById('scatter'); while(svg.firstChild)svg.removeChild(svg.firstChild);
+  const M={l:44,r:14,t:12,b:40}, W=460,H=340, pw=W-M.l-M.r, ph=H-M.t-M.b;
+  const lo=0.03, hi=0.47; const X=v=>M.l+(v-lo)/(hi-lo)*pw, Y=v=>M.t+ph-(v-lo)/(hi-lo)*ph;
+  function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  // grid + ticks
+  for(let v=0.1;v<=0.4;v+=0.1){ svg.appendChild(el('line',{x1:M.l,y1:Y(v),x2:M.l+pw,y2:Y(v),stroke:'rgba(255,255,255,.07)'}));
+    svg.appendChild(el('line',{x1:X(v),y1:M.t,x2:X(v),y2:M.t+ph,stroke:'rgba(255,255,255,.07)'}));
+    const tx=el('text',{x:M.l-8,y:Y(v)+4,fill:'#9fb4c4','font-size':10,'text-anchor':'end'});tx.textContent=v.toFixed(1);svg.appendChild(tx);
+    const ty=el('text',{x:X(v),y:M.t+ph+16,fill:'#9fb4c4','font-size':10,'text-anchor':'middle'});ty.textContent=v.toFixed(1);svg.appendChild(ty); }
+  // 1:1 line
+  svg.appendChild(el('line',{x1:X(lo),y1:Y(lo),x2:X(hi),y2:Y(hi),stroke:'rgba(255,255,255,.35)','stroke-width':1.5,'stroke-dasharray':'6 4'}));
+  const oneone=el('text',{x:X(0.43),y:Y(0.43)-6,fill:'#9fb4c4','font-size':10,'text-anchor':'end'});oneone.textContent='1:1';svg.appendChild(oneone);
+  // axis labels
+  const xl=el('text',{x:M.l+pw/2,y:H-6,fill:'#9fb4c4','font-size':11,'text-anchor':'middle'});xl.textContent='reference (probe network)  m³/m³';svg.appendChild(xl);
+  const yl=el('text',{x:14,y:M.t+ph/2,fill:'#9fb4c4','font-size':11,'text-anchor':'middle',transform:`rotate(-90 14 ${M.t+ph/2})`});yl.textContent='satellite  m³/m³';svg.appendChild(yl);
+  // points
+  st.pts.forEach(p=>{ const c=el('circle',{cx:X(p.ref),cy:Y(p.sat),r:4,fill:'#6fd0ff','fill-opacity':.72,stroke:'#0b1420','stroke-width':.6});
+    c.addEventListener('mousemove',ev=>{tip.innerHTML='day '+(p.d+1)+'<br>ref '+p.ref.toFixed(3)+' · sat '+p.sat.toFixed(3);tip.style.opacity=1;tip.style.left=(ev.clientX+12)+'px';tip.style.top=(ev.clientY+12)+'px';});
+    c.addEventListener('mouseleave',()=>tip.style.opacity=0); svg.appendChild(c); });
+  // rmse annotation
+  const box=el('text',{x:M.l+8,y:M.t+16,fill:'#eaf2f7','font-size':12,'font-weight':700});box.textContent='RMSE '+st.app.toFixed(3);svg.appendChild(box);
+}
+function render(){
+  const st=computeStats();
+  drawField(); drawScatter(st);
+  document.getElementById('tApp').textContent=st.app.toFixed(3);
+  document.getElementById('tSat').textContent=st.sat.toFixed(3);
+  // decomposition bar (variance shares)
+  const vSat=st.sat*st.sat, vRep=st.rep*st.rep, tot=vSat+vRep;
+  document.getElementById('dbar').innerHTML='<i style="width:'+(vSat/tot*100)+'%;background:var(--sat)"></i><i style="width:'+(vRep/tot*100)+'%;background:var(--rep)"></i>';
+  document.getElementById('dsplit').textContent='sat '+Math.round(vSat/tot*100)+'% · repr '+Math.round(vRep/tot*100)+'%';
+  // scale tag
+  document.getElementById('scaletag').innerHTML='One probe integrates a few cm around its rods. The pixel integrates <b>9 km</b> in every direction — about <b>90,000× wider</b>, on the order of <b>10 billion×</b> the footprint area. The dots sample a field that varies underneath a single satellite value.';
+  // message
+  const repShare=Math.round(vRep/tot*100);
+  let m;
+  if(nP===1){ m='With <b>one probe</b>, <b>'+repShare+'%</b> of the apparent error is representativeness — the probe simply isn’t the pixel. A report that blamed the satellite for this RMSE ('+st.app.toFixed(3)+') would be mostly wrong: the true satellite error is <b>'+st.sat.toFixed(3)+'</b>.'; }
+  else if(nP<8){ m='At <b>'+nP+' probes</b> the network mean is steadier, so representativeness has fallen to <b>'+st.rep.toFixed(3)+'</b> and the apparent RMSE ('+st.app.toFixed(3)+') is closing on the true satellite error ('+st.sat.toFixed(3)+').'; }
+  else { m='With <b>'+nP+' probes</b> the reference nearly <i>is</i> the pixel mean (representativeness '+st.rep.toFixed(3)+'), so the scatter has tightened to the 1:1 line and the apparent RMSE ('+st.app.toFixed(3)+') now essentially reveals the satellite’s real error ('+st.sat.toFixed(3)+'). This is why dense core-validation sites cost so much — and why sparse networks flatter or malign the satellite by accident.'; }
+  document.getElementById('msg').innerHTML=m;
+}
+document.getElementById('n').oninput=function(){ nP=+this.value; document.getElementById('nv').textContent=nP; render(); };
+document.getElementById('h').oninput=function(){ sigH=this.value/1000; document.getElementById('hv').textContent=sigH.toFixed(3); render(); };
+document.getElementById('s').oninput=function(){ sigS=this.value/1000; document.getElementById('sv').textContent=sigS.toFixed(3); render(); };
+document.getElementById('hv').textContent=sigH.toFixed(3); document.getElementById('sv').textContent=sigS.toFixed(3);
+render();
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

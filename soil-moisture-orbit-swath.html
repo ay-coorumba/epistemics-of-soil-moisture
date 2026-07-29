@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Orbit &amp; Swath — how a soil-moisture satellite actually covers the Earth</title>
+<style>
+  :root{--asc:#f2a24a;--desc:#5fb6e6;--bg:#080f18;--panel:rgba(13,24,36,.9);--ink:#eaf2f7;--dim:#9fb4c4}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 6px;max-width:1400px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,27px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:920px}
+  .wrap{max-width:1400px;margin:0 auto;padding:6px 16px 30px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
+  .stage{position:relative;background:#04080f;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden}
+  #cv{width:100%;height:auto;display:block;cursor:grab}
+  #cv:active{cursor:grabbing}
+  .over{position:absolute;pointer-events:none}
+  #tl{left:16px;top:14px;background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 12px}
+  #tl .big{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  #tl .sub{font-size:11px;color:var(--dim)}
+  #cov{left:16px;top:86px;background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 12px;width:200px}
+  #cov .lab{font-size:11px;color:var(--dim);display:flex;justify-content:space-between}
+  #cov .track{height:9px;border-radius:5px;background:#22333f;margin-top:5px;overflow:hidden}
+  #cov .fill{height:100%;background:linear-gradient(90deg,#5fb6e6,#46c78a);width:0}
+  #leg{right:16px;bottom:14px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
+  .lc{font-size:10.5px;background:rgba(4,8,15,.82);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:3px 9px;display:flex;align-items:center;gap:6px}
+  .lc i{width:10px;height:10px;border-radius:3px}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px}
+  .box h3{margin:0 0 10px;font-size:13px}
+  .ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .ctrls button{padding:8px 12px;border:0;border-radius:7px;background:#26465f;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  .ctrls button:hover{background:#33597a}
+  .ctrls button.sec{background:#333f4c}
+  #scrub{width:100%;margin-top:10px}
+  .tg{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);margin-top:10px;cursor:pointer}
+  .spec{font-size:12px;color:#dbe6ef;line-height:1.7}
+  .spec b{color:#fff}
+  .spec .row{display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07);padding:2px 0}
+  .spec .row span:last-child{color:var(--dim);font-variant-numeric:tabular-nums}
+  .note{font-size:11.5px;color:var(--dim);line-height:1.5}
+  .note b{color:#ffd27a}
+  .foot{max-width:1400px;margin:0 auto;padding:0 24px 40px;color:var(--dim);font-size:12px;font-style:italic}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · Orbit &amp; Swath · companion to the soil-moisture explainer</p>
+  <h1>How the satellite actually covers the Earth</h1>
+  <p>A soil-moisture radiometer sees only a 1000-km stripe directly beneath it. It builds a global map by circling the planet ~14.6 times a day while the Earth turns underneath — so any one place is only visited every 2–3 days. Play it forward and watch the gaps. Everything between passes is <b style="color:#ffd27a">interpolated</b>.</p>
+</header>
+
+<div class="wrap">
+  <div class="stage">
+    <canvas id="cv" width="820" height="640"></canvas>
+    <div class="over" id="tl"><div class="big" id="tlv">0.0 h</div><div class="sub" id="tls">0.0 orbits · drag to rotate</div></div>
+    <div class="over" id="cov"><div class="lab"><span>land seen</span><b id="covv">0%</b></div><div class="track"><div class="fill" id="covf"></div></div><div class="lab" id="covnote" style="margin-top:5px">equatorial gaps still open</div></div>
+    <div class="over" id="leg">
+      <span class="lc"><i style="background:var(--desc)"></i>descending · 6am pass</span>
+      <span class="lc"><i style="background:var(--asc)"></i>ascending · 6pm pass</span>
+      <span class="lc"><i style="background:#e0503a"></i>not yet seen</span>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <div class="ctrls">
+        <button id="play">▶ Play</button>
+        <button id="reset" class="sec">Reset</button>
+      </div>
+      <input type="range" id="scrub" min="0" max="72" step="0.1" value="0">
+      <label class="tg"><input type="checkbox" id="gaps"> highlight unseen gaps</label>
+      <label class="tg"><input type="checkbox" id="spin" checked> slow auto-rotate</label>
+    </div>
+    <div class="box">
+      <h3>Orbit geometry <span style="color:var(--dim);font-weight:400">— SMAP</span></h3>
+      <canvas id="dia" width="270" height="150" style="width:100%;height:auto;margin-bottom:8px"></canvas>
+      <div class="spec">
+        <div class="row"><span>Altitude</span><span>685 km</span></div>
+        <div class="row"><span>Inclination</span><span>98.1° (near-polar)</span></div>
+        <div class="row"><span>Period</span><span>~99 min · 14.6/day</span></div>
+        <div class="row"><span>Equator crossing</span><span>6 am / 6 pm</span></div>
+        <div class="row"><span>Swath</span><span>1000 km</span></div>
+        <div class="row"><span>Antenna</span><span>6 m · 14.6 rpm · 40°</span></div>
+        <div class="row"><span>Exact repeat</span><span>8 days</span></div>
+        <div class="row"><span>Global revisit</span><span>~3 days (2 d &gt;45°N)</span></div>
+      </div>
+    </div>
+    <div class="box">
+      <p class="note"><b>Why this matters:</b> the “daily global soil-moisture map” isn’t observed daily everywhere. Between overpasses each pixel is filled by interpolation or model assimilation — a temporal inference sitting on top of every spatial one.</p>
+    </div>
+  </div>
+</div>
+<p class="foot">SMAP orbit &amp; instrument figures from the NASA/JPL SMAP observatory specifications; inclination and period are standard published values. Ground-track model is a simplified circular-orbit approximation (nodal precession and orbit eccentricity neglected) — faithful for coverage geometry, not for precise ephemeris.</p>
+
+<script>
+const DEG=Math.PI/180;
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+let W=cv.width, H=cv.height;
+// ---- orbit / earth constants ----
+const Re=6371, ALT=685, Torb=99*60, INC=98.12*DEG, SWATH=1000, wEarth=360/86400; // deg/s
+const ROSC=(Re+ALT)/Re;
+const swHalf=(SWATH/2)/Re/DEG; // angular half-swath in degrees (~4.5)
+const ORBITS_DAY=86400/Torb;
+// ---- coverage grid ----
+const nLat=90, nLon=180, LATS=180/nLat, LONS=360/nLon; // 2deg cells
+let seen=new Int8Array(nLat*nLon); // 0 none,1 asc,2 desc
+let seent=new Float32Array(nLat*nLon);
+let areaTot=0, areaW=new Float32Array(nLat);
+for(let iy=0;iy<nLat;iy++){ const latc=-90+iy*LATS+LATS/2; areaW[iy]=Math.cos(latc*DEG); areaTot+=areaW[iy]*nLon; }
+function idx(iy,ix){ ix=((ix%nLon)+nLon)%nLon; return iy*nLon+ix; }
+function setCell(lat,lon,type,t){ if(lat<-90||lat>90)return; let iy=Math.floor((lat+90)/LATS); if(iy<0||iy>=nLat)return; let ix=Math.floor((lon+180)/LONS); const i=idx(iy,ix); if(!seen[i]){seen[i]=type;} seent[i]=t; }
+function gc(la1,lo1,la2,lo2){ const p1=la1*DEG,p2=la2*DEG,dl=(lo2-lo1)*DEG; const c=Math.sin(p1)*Math.sin(p2)+Math.cos(p1)*Math.cos(p2)*Math.cos(dl); return Math.acos(Math.max(-1,Math.min(1,c)))/DEG; }
+
+// ---- ground track ----
+function subsat(t){ // t seconds
+  const u=2*Math.PI*(t/Torb);
+  const lat=Math.asin(Math.sin(INC)*Math.sin(u))/DEG;
+  let lon=Math.atan2(Math.cos(INC)*Math.sin(u),Math.cos(u))/DEG - wEarth*t;
+  lon=((lon+180)%360+360)%360-180;
+  return {lat,lon,asc:Math.cos(u)>0};
+}
+function paint(t){
+  const p=subsat(t), type=p.asc?1:2, rad=swHalf;
+  const dIy=Math.ceil(rad/LATS)+1;
+  for(let a=-dIy;a<=dIy;a++){ const lat=p.lat+a*LATS; if(lat<-90||lat>90)continue;
+    const cl=Math.max(0.04,Math.cos(lat*DEG)); const dIx=Math.ceil((rad/cl)/LONS)+1;
+    for(let b=-dIx;b<=dIx;b++){ const lon=p.lon+b*LONS; if(gc(p.lat,p.lon,lat,lon)<=rad) setCell(lat,lon,type,t); }
+  }
+}
+let trail=[];
+function integrate(toT){
+  if(toT<simT){ seen.fill(0); seent.fill(0); simT=0; trail=[]; }
+  const STEP=25; // sim seconds per paint
+  while(simT<toT){ const nt=Math.min(toT,simT+STEP); simT=nt; paint(simT); const p=subsat(simT); trail.push({lat:p.lat,lon:p.lon,asc:p.asc}); }
+  if(trail.length>400) trail=trail.slice(-400);
+}
+
+// ---- orthographic view ----
+let viewLon=-40, viewLat=24, R=0, cx=0, cy=0;
+function layout(){ R=Math.min(W,H)*0.42; cx=W*0.5; cy=H*0.52; }
+function proj(lat,lon,rs){ const f0=viewLat*DEG, ph=lat*DEG, la=(lon-viewLon)*DEG;
+  const z=Math.sin(f0)*Math.sin(ph)+Math.cos(f0)*Math.cos(ph)*Math.cos(la);
+  const X=Math.cos(ph)*Math.sin(la), Y=Math.cos(f0)*Math.sin(ph)-Math.sin(f0)*Math.cos(ph)*Math.cos(la);
+  return {x:cx+R*rs*X, y:cy-R*rs*Y, vis:z>0, z}; }
+
+function drawGlobe(t){
+  g.clearRect(0,0,W,H);
+  // ocean sphere
+  const gr=g.createRadialGradient(cx-R*0.3,cy-R*0.3,R*0.2,cx,cy,R);
+  gr.addColorStop(0,'#12263a'); gr.addColorStop(0.7,'#0c1a29'); gr.addColorStop(1,'#060f18');
+  g.fillStyle=gr; g.beginPath(); g.arc(cx,cy,R,0,7); g.fill();
+  g.strokeStyle='rgba(120,170,210,.25)'; g.lineWidth=1; g.stroke();
+  // graticule
+  g.strokeStyle='rgba(120,160,200,.14)'; g.lineWidth=1;
+  for(let lat=-60;lat<=60;lat+=30){ g.beginPath(); let started=false; for(let lon=-180;lon<=180;lon+=4){ const p=proj(lat,lon,1); if(p.vis){ if(!started){g.moveTo(p.x,p.y);started=true;} else g.lineTo(p.x,p.y);} else started=false; } g.stroke(); }
+  for(let lon=-180;lon<180;lon+=30){ g.beginPath(); let started=false; for(let lat=-90;lat<=90;lat+=4){ const p=proj(lat,lon,1); if(p.vis){ if(!started){g.moveTo(p.x,p.y);started=true;} else g.lineTo(p.x,p.y);} else started=false; } g.stroke(); }
+  // coverage cells
+  const showGaps=document.getElementById('gaps').checked;
+  const cw=Math.max(2.4, R*LATS*DEG*0.9);
+  for(let iy=0;iy<nLat;iy++){ const latc=-90+iy*LATS+LATS/2;
+    for(let ix=0;ix<nLon;ix++){ const i=iy*nLon+ix; const s=seen[i];
+      const lonc=-180+ix*LONS+LONS/2; const p=proj(latc,lonc,1); if(!p.vis)continue;
+      if(s){ const age=Math.min(1,(t-seent[i])/(6*3600)); const al=0.85-0.35*age;
+        g.fillStyle=s===1?`rgba(242,162,74,${al})`:`rgba(95,182,230,${al})`;
+        g.fillRect(p.x-cw/2,p.y-cw/2,cw,cw);
+      } else if(showGaps){ g.fillStyle='rgba(224,80,58,.5)'; g.fillRect(p.x-cw/2,p.y-cw/2,cw,cw); }
+    } }
+  // recent orbit trail (lifted to orbit radius)
+  g.lineWidth=2; g.strokeStyle='rgba(255,255,255,.5)'; g.beginPath(); let st=false;
+  trail.forEach(pt=>{ const p=proj(pt.lat,pt.lon,ROSC); if(p.vis){ if(!st){g.moveTo(p.x,p.y);st=true;} else g.lineTo(p.x,p.y);} else st=false; });
+  g.stroke();
+  // satellite marker
+  const ss=subsat(simT); const sp=proj(ss.lat,ss.lon,ROSC);
+  if(sp.vis){ g.fillStyle=ss.asc?'#ffcf8f':'#bfe4fb'; g.strokeStyle='#fff'; g.lineWidth=1.5;
+    g.beginPath(); g.arc(sp.x,sp.y,5,0,7); g.fill(); g.stroke();
+    // nadir line to surface
+    const gp=proj(ss.lat,ss.lon,1); if(gp.vis){ g.strokeStyle='rgba(255,255,255,.4)'; g.setLineDash([3,3]); g.beginPath(); g.moveTo(sp.x,sp.y); g.lineTo(gp.x,gp.y); g.stroke(); g.setLineDash([]); } }
+  // pole labels
+  const np=proj(90,viewLon,1), spo=proj(-90,viewLon,1);
+  g.fillStyle='rgba(200,220,235,.7)'; g.font='11px sans-serif'; g.textAlign='center';
+  if(np.vis)g.fillText('N',np.x,np.y-6); if(spo.vis)g.fillText('S',spo.x,spo.y+14); g.textAlign='left';
+}
+
+function coverage(){ let s=0; for(let iy=0;iy<nLat;iy++){ const w=areaW[iy]; for(let ix=0;ix<nLon;ix++) if(seen[iy*nLon+ix]) s+=w; } return s/areaTot; }
+
+// ---- loop / controls ----
+let simT=0, playing=false, lastReal=performance.now();
+const SPEED=3600*3; // sim-seconds per real-second (3 h/s)
+const MAXT=72*3600;
+function updateHUD(){
+  document.getElementById('tlv').textContent=(simT/3600).toFixed(1)+' h';
+  document.getElementById('tls').textContent=(simT/Torb).toFixed(1)+' orbits · '+(simT/3600/24).toFixed(1)+' days';
+  const c=coverage(); document.getElementById('covv').textContent=Math.round(c*100)+'%';
+  document.getElementById('covf').style.width=(c*100)+'%';
+  document.getElementById('covnote').textContent = c<0.5?'equatorial gaps wide open':c<0.85?'equator still filling in':c<0.97?'nearly complete — slivers remain':'global coverage reached';
+  document.getElementById('scrub').value=(simT/3600).toFixed(1);
+}
+function frame(now){
+  const dt=(now-lastReal)/1000; lastReal=now;
+  if(document.getElementById('spin').checked) viewLon-=dt*4;
+  if(playing){ let nt=simT+dt*SPEED; if(nt>=MAXT){nt=MAXT;playing=false;document.getElementById('play').textContent='▶ Play';} integrate(nt); updateHUD(); }
+  drawGlobe(simT);
+  requestAnimationFrame(frame);
+}
+document.getElementById('play').onclick=function(){ if(simT>=MAXT){integrate(0);} playing=!playing; this.textContent=playing?'❚❚ Pause':'▶ Play'; lastReal=performance.now(); };
+document.getElementById('reset').onclick=function(){ playing=false; document.getElementById('play').textContent='▶ Play'; integrate(0); updateHUD(); };
+document.getElementById('scrub').oninput=function(){ playing=false; document.getElementById('play').textContent='▶ Play'; integrate(parseFloat(this.value)*3600); updateHUD(); };
+// drag rotate
+let drag=false,lx=0,ly=0;
+cv.addEventListener('mousedown',e=>{drag=true;lx=e.offsetX;ly=e.offsetY;document.getElementById('spin').checked=false;});
+addEventListener('mouseup',()=>drag=false);
+cv.addEventListener('mousemove',e=>{ if(!drag)return; viewLon-=(e.offsetX-lx)*0.4; viewLat=Math.max(-80,Math.min(80,viewLat+(e.offsetY-ly)*0.4)); lx=e.offsetX;ly=e.offsetY; });
+
+// ---- orbit schematic ----
+(function(){ const d=document.getElementById('dia'), x=d.getContext('2d'); const w=d.width,h=d.height;
+  x.clearRect(0,0,w,h); const ex=w*0.42,ey=h*0.5,er=34;
+  // earth
+  const gr=x.createRadialGradient(ex-8,ey-8,4,ex,ey,er); gr.addColorStop(0,'#1c4066');gr.addColorStop(1,'#0b2135');
+  x.fillStyle=gr;x.beginPath();x.arc(ex,ey,er,0,7);x.fill();
+  // orbit ellipse (tilted)
+  x.strokeStyle='#8fd0ff';x.lineWidth=1.5;x.save();x.translate(ex,ey);x.rotate(-0.35);x.beginPath();x.ellipse(0,0,er+30,er+8,0,0,7);x.stroke();x.restore();
+  // satellite
+  const sxp=ex+ (er+30)*Math.cos(-0.35)*0.2 - (er+8)*Math.sin(-0.35)*0.98, syp=ey+ (er+30)*Math.sin(-0.35)*0.2 + (er+8)*Math.cos(-0.35)*0.98;
+  x.fillStyle='#ffcf8f';x.beginPath();x.arc(sxp,syp,4,0,7);x.fill();
+  // swath cone
+  x.fillStyle='rgba(95,182,230,.25)';x.beginPath();x.moveTo(sxp,syp);const g1=ex-14,g2=ex+14,gy=ey-er+4;x.lineTo(g1,gy+8);x.lineTo(g2,gy+2);x.closePath();x.fill();
+  x.fillStyle='#cfe0ee';x.font='9px sans-serif';
+  x.fillText('685 km',sxp+6,syp-2); x.fillText('1000 km swath',ex-26,ey-er-6);
+  x.fillText('98.1° polar',w-70,h-8); x.fillText('Earth spins →',6,h-8);
+  // spin arrow
+  x.strokeStyle='#9fb4c4';x.beginPath();x.arc(ex,ey,er+2,0.3,1.2);x.stroke();
+})();
+
+layout(); integrate(0); updateHUD(); requestAnimationFrame(frame);
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

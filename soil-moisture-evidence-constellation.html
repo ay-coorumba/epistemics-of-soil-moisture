@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Evidence Constellation — peer-reviewed grounding for the soil-moisture collection</title>
+<style>
+  :root{--retr:#56B4E9;--vald:#009E73;--rfi:#D55E00;--merg:#CC79A7;--assm:#E69F00;
+        --bg:#05080f;--panel:rgba(12,20,32,.94);--ink:#eaf2f7;--dim:#9fb4c4}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 6px;max-width:1500px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,28px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:1000px}
+  .wrap{max-width:1500px;margin:0 auto;padding:8px 16px 30px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px}
+  .stage{position:relative;background:radial-gradient(ellipse at 50% 40%,#0a1424,#05080f 80%);border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden}
+  #cv{width:100%;height:auto;display:block;cursor:default}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px}
+  .box h3{margin:0 0 9px;font-size:13px}
+  .legend{display:flex;flex-direction:column;gap:5px}
+  .lc{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim);cursor:pointer;padding:3px 5px;border-radius:6px}
+  .lc:hover{background:rgba(255,255,255,.05);color:var(--ink)}
+  .lc.on{background:rgba(255,255,255,.09);color:var(--ink)}
+  .lc i{width:11px;height:11px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 6px currentColor}
+  .lc small{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+  .pieces{display:flex;flex-direction:column;gap:4px}
+  .pc{font-size:12px;color:var(--dim);cursor:pointer;padding:5px 8px;border-radius:6px;border:1px solid transparent;display:flex;justify-content:space-between;gap:6px}
+  .pc:hover{background:rgba(255,255,255,.05);color:var(--ink)}
+  .pc.on{background:rgba(111,208,255,.14);color:#fff;border-color:rgba(111,208,255,.4)}
+  .pc small{color:var(--dim);font-variant-numeric:tabular-nums}
+  #detail .th{font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:6px}
+  #detail h4{margin:0 0 4px;font-size:14px;line-height:1.3}
+  #detail .meta{font-size:11px;color:var(--dim);margin-bottom:8px}
+  #detail p{font-size:12.5px;color:#dbe6ef;line-height:1.5;margin:0 0 8px}
+  #detail .grounds{font-size:11px;color:var(--dim);border-top:1px dashed rgba(255,255,255,.15);padding-top:8px}
+  #detail .grounds b{color:var(--ink)}
+  .hint{font-size:11px;color:var(--dim);font-style:italic}
+  .foot{max-width:1500px;margin:0 auto;padding:2px 24px 40px;color:var(--dim);font-size:11.5px;line-height:1.5}
+  .tip{position:fixed;pointer-events:none;background:rgba(4,8,15,.97);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 10px;font-size:11.5px;opacity:0;transition:.08s;z-index:40;max-width:270px;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+  .tip b{color:#fff}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · The evidence constellation · companion to the soil-moisture collection</p>
+  <h1>The peer-reviewed sky behind the story</h1>
+  <p>Every claim across the ten explainers rests on published science. Here that literature is a star-map: ~29 papers, grouped into the constellations of the problem — retrieval, validation, interference, merging, assimilation. Hover a star for the paper; click it to read what it grounds; click one of the explainers on the right to light up its supporting constellation. Star size ∝ citations.</p>
+</header>
+
+<div class="wrap">
+  <div class="stage"><canvas id="cv" width="1120" height="760"></canvas></div>
+  <div class="side">
+    <div class="box">
+      <h3>Constellations <span class="hint">— click to isolate</span></h3>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="box">
+      <h3>Light up an explainer's evidence</h3>
+      <div class="pieces" id="pieces"></div>
+    </div>
+    <div class="box" id="detail">
+      <div class="th" style="color:#6fd0ff">how to read this</div>
+      <h4>A story with citations</h4>
+      <p class="meta">~29 peer-reviewed papers · sourced via Consensus</p>
+      <p>Hover any star for its title and citation count. Click a star to read its finding and which explainers it supports. Click an explainer at left to trace its evidence.</p>
+      <div class="grounds" id="grounds"></div>
+    </div>
+  </div>
+</div>
+<p class="foot">Literature retrieved via Consensus (peer-reviewed filter). Citation counts are indicative and evolve. This map shows representative grounding, not an exhaustive review; the collection's illustrative figures should still be verified against primary sources before publication. Full numbered references accompany the delivery message.</p>
+
+<script>
+const TH={
+  retr:{c:'#56B4E9',label:'Retrieval & τ–ω algorithm', cx:0.24,cy:0.30},
+  vald:{c:'#009E73',label:'Validation, scale & representativeness', cx:0.24,cy:0.74},
+  rfi:{c:'#D55E00',label:'Radio-frequency interference', cx:0.77,cy:0.28},
+  merg:{c:'#CC79A7',label:'Merging & the climate record', cx:0.78,cy:0.72},
+  assm:{c:'#E69F00',label:'Assimilation & root zone', cx:0.52,cy:0.52},
+};
+const PIECES={
+  'explainer':'3D explainer (Innisfail / Ayutthaya)',
+  'retrieval-chain':'Annotated retrieval chain',
+  'capture-journey':'The signal’s journey',
+  'provenance':'Provenance DAG',
+  'orbit-swath':'Orbit & swath',
+  'waterfall':'Uncertainty waterfall',
+  'sandbox':'Turn-off-a-correction sandbox',
+  'ground-truth':'Ground truth vs satellite',
+  'national':'Four flags, four pipelines',
+};
+// papers: id, title, authors, year, journal, cites, theme, url, finding, pieces[]
+const P=[
+  // retrieval
+  {id:'chaubell20',t:'Improved SMAP Dual-Channel Algorithm for the Retrieval of Soil Moisture',a:'Chaubell et al.',y:2020,j:'IEEE TGRS',c:118,th:'retr',u:'https://consensus.app/papers/details/7cbc20e635ff5106be26edf63f7a401c/?utm_source=claude_desktop',f:'Sets the SMAP accuracy target of ≤0.04 m³/m³ ubRMSD (for VWC < 5 kg/m²); shows SCA-V still outperforms the dual-channel algorithm.',p:['waterfall','retrieval-chain']},
+  {id:'park20',t:'Parameterization of Vegetation Scattering Albedo in the Tau-Omega Model',a:'Park et al.',y:2020,j:'Remote Sensing',c:10,th:'retr',u:'https://consensus.app/papers/details/bc0076d5989e528e904ea31072b8432b/?utm_source=claude_desktop',f:'A constant scattering albedo ω causes brightness-temperature errors of −9 to +12 K over crops; a time-varying ω cuts ubRMSE ~16%.',p:['sandbox','retrieval-chain','waterfall']},
+  {id:'baur21',t:'Time-variations of zeroth-order vegetation absorption and scattering at L-band',a:'Baur et al.',y:2021,j:'Remote Sensing of Environment',c:20,th:'retr',u:'https://consensus.app/papers/details/43952a8f71da51919a70cc811887f082/?utm_source=claude_desktop',f:'When vegetation attenuation is weak, ω is poorly constrained and highly noise-sensitive — the retrieval inversion’s intrinsic fragility.',p:['sandbox','capture-journey']},
+  {id:'zhao21',t:'Retrievals of soil moisture and VOD using a multi-channel collaborative algorithm',a:'Zhao et al.',y:2021,j:'Remote Sensing of Environment',c:136,th:'retr',u:'https://consensus.app/papers/details/7ae308e45379537c879abb5030e1fb7f/?utm_source=claude_desktop',f:'Multi-angle/multi-frequency L-band retrieval; explicitly informs future missions incl. CIMR and China’s Water Cycle Observation Mission (WCOM).',p:['national','retrieval-chain']},
+  {id:'gao18',t:'Evaluation of the Tau–Omega Model for Passive Soil Moisture Retrieval Using SMAPEx',a:'Gao et al.',y:2018,j:'IEEE JSTARS',c:16,th:'retr',u:'https://consensus.app/papers/details/e77ccaea458354559284f00332fa12e8/?utm_source=claude_desktop',f:'SMAP ATBD default parameters underestimate soil moisture and set roughness too low for some conditions — the parameters are consequential.',p:['sandbox','retrieval-chain']},
+  // validation
+  {id:'crow12',t:'Upscaling sparse ground-based soil moisture observations for validation',a:'Crow et al.',y:2012,j:'Reviews of Geophysics',c:690,th:'vald',u:'https://consensus.app/papers/details/1ebb636d45235bb3be9dde40d7066fd0/?utm_source=claude_desktop',f:'The foundational statement: point-to-footprint sampling error is misattributed to retrieval uncertainty, spuriously degrading perceived satellite accuracy.',p:['ground-truth']},
+  {id:'molero18',t:'Multi-timescale spatial representativeness of in-situ soil moisture within footprints',a:'Molero et al.',y:2018,j:'JGR: Atmospheres',c:27,th:'vald',u:'https://consensus.app/papers/details/1507a5fc92155a4a916fa6802fa1af2f/?utm_source=claude_desktop',f:'Representativeness improves with timescale; a single station per footprint can suffice with the right (wavelet) method.',p:['ground-truth','orbit-swath']},
+  {id:'peng25',t:'Spatial Representativeness of Soil Moisture Stations at a Global Scale',a:'Peng et al.',y:2025,j:'IEEE TGRS',c:50,th:'vald',u:'https://consensus.app/papers/details/1f4a42a4d4e35c0bbfdda1c0eed7840b/?utm_source=claude_desktop',f:'Across 322 global sites, ~63% are representative; land-cover heterogeneity is the dominant control on site under-representation.',p:['ground-truth']},
+  {id:'chen17',t:'Application of Triple Collocation in Ground-Based Validation of SMAP L2',a:'Chen et al.',y:2017,j:'IEEE JSTARS',c:142,th:'vald',u:'https://consensus.app/papers/details/75f8f7af449051a28b7d2489eb76a3d7/?utm_source=claude_desktop',f:'Triple collocation recovers an unbiased satellite-vs-truth correlation even from a single station per footprint — validation without a true mean.',p:['ground-truth']},
+  {id:'miralles10',t:'Estimating Spatial Sampling Errors in Coarse-Scale Soil Moisture Estimates',a:'Miralles et al.',y:2010,j:'J. Hydrometeorology',c:213,th:'vald',u:'https://consensus.app/papers/details/468d4627b9f4558b918be92f34b2c2e7/?utm_source=claude_desktop',f:'Triple collocation estimates point-to-footprint sampling error to within ~0.006 m³/m³, separating it from true retrieval error.',p:['ground-truth']},
+  {id:'clewley17',t:'A Method for Upscaling In-Situ Soil Moisture to Satellite Footprint Using Random Forests',a:'Clewley et al.',y:2017,j:'IEEE JSTARS',c:51,th:'vald',u:'https://consensus.app/papers/details/eb974eb418b1591e98b4363179c34ad0/?utm_source=claude_desktop',f:'Upscales sparse networks to SMAP 36/9/3-km footprints — a practical answer to the point-vs-pixel mismatch.',p:['ground-truth']},
+  {id:'montzka17',t:'Validation of Spaceborne Surface Soil Moisture with Cosmic-Ray Neutron Probes',a:'Montzka et al.',y:2017,j:'Remote Sensing',c:129,th:'vald',u:'https://consensus.app/papers/details/1445237e441856cc943122c783b73cec/?utm_source=claude_desktop',f:'CRNP area-average measurements bridge the point–pixel gap; triple collocation ranks SMAP the most accurate of the products tested.',p:['ground-truth','national']},
+  {id:'jackson10',t:'Validation of Advanced Microwave Scanning Radiometer Soil Moisture Products',a:'Jackson et al.',y:2010,j:'IEEE TGRS',c:567,th:'vald',u:'https://consensus.app/papers/details/6fb0bc6e5f3456178e81e2c2dd09b93e/?utm_source=claude_desktop',f:'Scale disparity between point and footprint is the central validation challenge; both NASA and JAXA products carried moderate-to-large bias.',p:['ground-truth','national']},
+  {id:'balenzano21',t:'Sentinel-1 soil moisture at 1 km resolution: a validation study',a:'Balenzano et al.',y:2021,j:'Remote Sensing of Environment',c:139,th:'vald',u:'https://consensus.app/papers/details/5b4e41957ebc51e19ed329c015fb2e66/?utm_source=claude_desktop',f:'Field-scale C-band SAR product; sparse-network representativeness error inflates RMSE by ~0.02 m³/m³.',p:['national','ground-truth']},
+  // rfi
+  {id:'piepmeier13',t:'Radio-Frequency Interference Mitigation for the SMAP Microwave Radiometer',a:'Piepmeier et al.',y:2013,j:'IEEE TGRS',c:157,th:'rfi',u:'https://consensus.app/papers/details/28d6e06906825a229a57268e57b5332a/?utm_source=claude_desktop',f:'Low-level RFI (0.1–10 K) can be mistaken for natural variability; SMAP’s multi-domain onboard+ground detection removes it.',p:['capture-journey','provenance']},
+  {id:'mohammed16',t:'SMAP L-Band Radiometer: RFI Mitigation and First Year On-Orbit Observations',a:'Mohammed et al.',y:2016,j:'IEEE TGRS',c:108,th:'rfi',u:'https://consensus.app/papers/details/0225a513178f587d8c489ea5dd104d1b/?utm_source=claude_desktop',f:'RFI is frequent over Asia and Europe; some regions (e.g., Japan) suffer complete data loss — the map of what can be measured is partly regulatory.',p:['capture-journey','national']},
+  {id:'zhou19',t:'Characteristics of L-band RFI detected via SMAP over China',a:'Zhou et al.',y:2019,j:'Results in Physics',c:8,th:'rfi',u:'https://consensus.app/papers/details/901c7d42ed8a59afbdc88aed3c049895/?utm_source=claude_desktop',f:'Over China, RFI concentrates on urban agglomerations and correlates strongly with population density.',p:['national','capture-journey']},
+  {id:'camps11',t:'RFI Detection and Mitigation Algorithms for Synthetic Aperture Radiometers (SMOS)',a:'Camps et al.',y:2011,j:'Algorithms',c:50,th:'rfi',u:'https://consensus.app/papers/details/84609a1d3f155e25a0a342962f01165f/?utm_source=claude_desktop',f:'SMOS’s MIRAS interferometer suffers RFI across much of the world despite the protected band — Europe’s interferometric bet, and its cost.',p:['national','capture-journey']},
+  {id:'soldo18',t:'Location of Radio-Frequency Interference Sources Using the SMAP L-Band Radiometer',a:'Soldo et al.',y:2018,j:'IEEE TGRS',c:24,th:'rfi',u:'https://consensus.app/papers/details/2930044de0fd57df96d3fc5e925289d1/?utm_source=claude_desktop',f:'SMAP’s viewing geometry locates RFI transmitters to ~1–2 km, enabling shutdown campaigns.',p:['capture-journey']},
+  // merging
+  {id:'dorigo17',t:'ESA CCI Soil Moisture for improved Earth system understanding',a:'Dorigo et al.',y:2017,j:'Remote Sensing of Environment',c:1174,th:'merg',u:'https://consensus.app/papers/details/a954cebb043256bfbc3f14090baeb9d1/?utm_source=claude_desktop',f:'The definitive account of the ESA CCI multi-decadal (1978–) merged active+passive climate record — Europe’s “fuse everything” philosophy.',p:['national','provenance']},
+  {id:'gruber19',t:'Evolution of the ESA CCI Soil Moisture climate data records and merging methodology',a:'Gruber et al.',y:2019,j:'Earth System Science Data',c:528,th:'merg',u:'https://consensus.app/papers/details/b4efd13098955b71932da34a6bb13adb/?utm_source=claude_desktop',f:'Documents the algorithm that harmonises many national sensors into one consistent global record.',p:['national']},
+  {id:'dorigo18',t:'Statistical Merging of Active and Passive Microwave Observations into CDRs',a:'Dorigo et al.',y:2018,j:'IGARSS',c:1,th:'merg',u:'https://consensus.app/papers/details/2d44680938545607b6b1ce07c8fbfc5b/?utm_source=claude_desktop',f:'Sensors are weighted by their triple-collocation uncertainty when merged — the record is a quality/openness-weighted blend.',p:['national']},
+  {id:'wagner12',t:'Fusion of active and passive microwave into an Essential Climate Variable',a:'Wagner et al.',y:2012,j:'ISPRS Annals',c:321,th:'merg',u:'https://consensus.app/papers/details/48802abd6f2f559e81e28521140d1060/?utm_source=claude_desktop',f:'The foundational scheme merging Level-2 soil moisture across missions into a single climate record.',p:['national']},
+  {id:'hagan20',t:'Maximizing Temporal Correlations in Long-Term Global Soil Moisture Data-Merging',a:'Hagan et al.',y:2020,j:'Remote Sensing',c:12,th:'merg',u:'https://consensus.app/papers/details/03080be2415a5f53ad049bff628cb502/?utm_source=claude_desktop',f:'China’s FengYun-3B MWRI is as dependable as AMSR2 — yet is absent from the ESA ECV merging scheme. The record’s composition is a choice.',p:['national']},
+  {id:'alyaari19',t:'Assessment and inter-comparison of microwave satellite soil moisture products vs ISMN',a:'Al-Yaari et al.',y:2019,j:'Remote Sensing of Environment',c:204,th:'merg',u:'https://consensus.app/papers/details/c24b6a9b596d57b7a504a23d7241db37/?utm_source=claude_desktop',f:'Head-to-head of SMAP, SMOS, ASCAT and ESA CCI against >1000 ISMN stations; SMAP and SMOS-IC compare best overall.',p:['national']},
+  // assimilation
+  {id:'reichle19',t:'Version 4 of the SMAP Level-4 Soil Moisture Algorithm and Data Product',a:'Reichle et al.',y:2019,j:'JAMES',c:177,th:'assm',u:'https://consensus.app/papers/details/a8beb98b74cf5aa1845de4df71f0450d/?utm_source=claude_desktop',f:'Assimilates SMAP Tb into the NASA Catchment model via an ensemble Kalman filter; bias-adjusted RMSE 0.039 (surface), 0.026 (root zone).',p:['provenance','retrieval-chain']},
+  {id:'reichle17',t:'Global Assessment of the SMAP Level-4 Soil Moisture Product via Assimilation Diagnostics',a:'Reichle et al.',y:2017,j:'J. Hydrometeorology',c:116,th:'assm',u:'https://consensus.app/papers/details/b9b823393484543dbd073a432d63b589/?utm_source=claude_desktop',f:'Climatological rescaling of the Tb observations makes the analysis essentially unbiased — the “unbiased RMSE” the error budget depends on.',p:['waterfall','provenance']},
+  {id:'lannoy16',t:'Global Assimilation of SMOS Brightness Temperatures into the GEOS-5 Catchment Model',a:'De Lannoy & Reichle',y:2016,j:'J. Hydrometeorology',c:135,th:'assm',u:'https://consensus.app/papers/details/07d8f398416b5a78906f78a75e0e05f8/?utm_source=claude_desktop',f:'Multi-angle L-band Tb assimilation updates surface and root-zone soil moisture — the machinery behind the “root zone is modelled” claim.',p:['provenance']},
+  {id:'qiu21',t:'The benefit of brightness temperature assimilation for the SMAP L4 analysis',a:'Qiu et al.',y:2021,j:'HESS',c:15,th:'assm',u:'https://consensus.app/papers/details/5178369607265422825299bb51bd3abf/?utm_source=claude_desktop',f:'L4 skill gains hinge on the RTM Tb error, precipitation-forcing error, and soil-roughness parameter — the deep number is model-dominated.',p:['provenance','waterfall']},
+];
+
+// ---------- layout ----------
+const cv=document.getElementById('cv'), g=cv.getContext('2d');
+let W=cv.width, H=cv.height, DPR=Math.min(2,window.devicePixelRatio||1);
+function fit(){ const r=cv.getBoundingClientRect(); W=r.width;H=r.height; cv.width=W*DPR;cv.height=H*DPR; g.setTransform(DPR,0,0,DPR,0,0); layout(); }
+function rad(c){ return 4+Math.sqrt(c)/2.6; }             // radius by citations
+const bg=[]; for(let i=0;i<160;i++) bg.push({x:Math.sin(i*12.9)*0.5+0.5, y:Math.cos(i*7.7)*0.5+0.5, r:Math.abs(Math.sin(i*3.3))*1.1+0.3, tw:i});
+function layout(){
+  const byTheme={}; P.forEach(p=>{(byTheme[p.th]=byTheme[p.th]||[]).push(p);});
+  for(const th in byTheme){ const arr=byTheme[th]; const C=TH[th]; const ccx=C.cx*W, ccy=C.cy*H;
+    arr.sort((a,b)=>b.c-a.c);
+    arr.forEach((p,i)=>{ const ang=i*2.399963; const rr=(i===0?0:34+Math.sqrt(i)*30); // golden-angle spiral
+      p.px=ccx+Math.cos(ang)*rr*(W/1120); p.py=ccy+Math.sin(ang)*rr*0.62; p.r=rad(p.c); });
+  }
+}
+fit(); addEventListener('resize',fit);
+
+let hoverP=null, selP=null, selTheme=null, selPiece=null;
+const tip=document.createElement('div'); tip.className='tip'; document.body.appendChild(tip);
+
+function activeSet(){ // which papers are "lit"
+  if(selPiece) return new Set(P.filter(p=>p.p.includes(selPiece)).map(p=>p.id));
+  if(selTheme) return new Set(P.filter(p=>p.th===selTheme).map(p=>p.id));
+  if(selP) return new Set([selP.id]);
+  return null;
+}
+let t0=performance.now();
+function draw(now){
+  const t=(now-t0)/1000;
+  g.clearRect(0,0,W,H);
+  // background stars
+  bg.forEach(s=>{ const a=0.25+0.35*Math.abs(Math.sin(t*0.7+s.tw)); g.fillStyle='rgba(200,220,240,'+a+')'; g.fillRect(s.x*W,s.y*H,s.r,s.r); });
+  const lit=activeSet();
+  // constellation lines within theme (faint) + lit links
+  const byTheme={}; P.forEach(p=>{(byTheme[p.th]=byTheme[p.th]||[]).push(p);});
+  for(const th in byTheme){ const arr=byTheme[th].slice().sort((a,b)=>b.c-a.c); const C=TH[th];
+    for(let i=1;i<arr.length;i++){ const a=arr[i], b=arr[Math.max(0,i-1)];
+      const on = !lit || (lit.has(a.id)&&lit.has(b.id));
+      g.strokeStyle=on? hex(C.c,.5):'rgba(120,150,180,.06)'; g.lineWidth=on?1.4:0.8;
+      g.beginPath(); g.moveTo(a.px,a.py); g.lineTo(b.px,b.py); g.stroke();
+    }
+  }
+  // if a piece is selected, connect all its lit papers to a shared centroid to show the "constellation"
+  if(selPiece){ const ps=P.filter(p=>p.p.includes(selPiece)); if(ps.length){ let mx=0,my=0; ps.forEach(p=>{mx+=p.px;my+=p.py;}); mx/=ps.length; my/=ps.length;
+    ps.forEach(p=>{ g.strokeStyle='rgba(111,208,255,.35)'; g.lineWidth=1; g.beginPath(); g.moveTo(p.px,p.py); g.lineTo(mx,my); g.stroke(); });
+    g.fillStyle='rgba(111,208,255,.9)'; g.beginPath(); g.arc(mx,my,4,0,7); g.fill();
+    g.fillStyle='#cfeaff'; g.font='600 11px sans-serif'; g.textAlign='center'; g.fillText(PIECES[selPiece], mx, my-10); g.textAlign='left';
+  }}
+  // nodes
+  P.forEach(p=>{ const C=TH[p.th].c; const on = !lit || lit.has(p.id); const rr=p.r*(hoverP===p||selP===p?1.4:1);
+    // glow
+    const gr=g.createRadialGradient(p.px,p.py,0,p.px,p.py,rr*3.2);
+    gr.addColorStop(0,hex(C,on?0.85:0.12)); gr.addColorStop(1,hex(C,0));
+    g.fillStyle=gr; g.beginPath(); g.arc(p.px,p.py,rr*3.2,0,7); g.fill();
+    // core
+    g.fillStyle=on?C:hex(C,.25); g.beginPath(); g.arc(p.px,p.py,rr,0,7); g.fill();
+    if(on){ g.strokeStyle='rgba(255,255,255,.85)'; g.lineWidth=1; g.stroke(); }
+  });
+  requestAnimationFrame(draw);
+}
+function hex(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+requestAnimationFrame(draw);
+
+// ---------- interaction ----------
+function pick(mx,my){ let best=null,bd=1e9; P.forEach(p=>{ const d=Math.hypot(p.px-mx,p.py-my); if(d<Math.max(12,p.r+6)&&d<bd){bd=d;best=p;} }); return best; }
+cv.addEventListener('mousemove',e=>{ const r=cv.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top; hoverP=pick(mx,my);
+  if(hoverP){ cv.style.cursor='pointer'; tip.innerHTML='<b>'+hoverP.t+'</b><br>'+hoverP.a+' · '+hoverP.y+' · '+hoverP.j+'<br>'+hoverP.c+' citations · '+TH[hoverP.th].label;
+    tip.style.opacity=1; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; }
+  else { cv.style.cursor='default'; tip.style.opacity=0; }
+});
+cv.addEventListener('mouseleave',()=>{tip.style.opacity=0;hoverP=null;});
+cv.addEventListener('click',e=>{ const r=cv.getBoundingClientRect(); const p=pick(e.clientX-r.left,e.clientY-r.top);
+  if(p){ selP=p; selTheme=null; selPiece=null; showPaper(p); syncUI(); } else { selP=null; showDefault(); } });
+
+function showPaper(p){
+  const d=document.getElementById('detail'); const C=TH[p.th];
+  d.querySelector('.th').textContent=C.label; d.querySelector('.th').style.color=C.c;
+  d.querySelector('h4').innerHTML='<a href="'+p.u+'" target="_blank" style="color:#fff;text-decoration:none">'+p.t+' ↗</a>';
+  d.querySelector('.meta').textContent=p.a+' · '+p.y+' · '+p.j+' · '+p.c+' citations';
+  d.querySelectorAll('p')[1].textContent=p.f;
+  document.getElementById('grounds').innerHTML='<b>Grounds:</b> '+p.p.map(x=>PIECES[x]).join(' · ');
+}
+function showDefault(){
+  selP=null;selTheme=null;selPiece=null; syncUI();
+  const d=document.getElementById('detail');
+  d.querySelector('.th').textContent='how to read this'; d.querySelector('.th').style.color='#6fd0ff';
+  d.querySelector('h4').textContent='A story with citations';
+  d.querySelector('.meta').textContent='~29 peer-reviewed papers · sourced via Consensus';
+  d.querySelectorAll('p')[1].textContent='Hover any star for its title and citation count. Click a star to read its finding and which explainers it supports. Click an explainer below to trace its evidence.';
+  document.getElementById('grounds').innerHTML='';
+}
+
+// legend
+const legend=document.getElementById('legend');
+Object.entries(TH).forEach(([k,v])=>{ const cnt=P.filter(p=>p.th===k).length;
+  const d=document.createElement('div'); d.className='lc'; d.dataset.th=k;
+  d.innerHTML='<i style="background:'+v.c+';color:'+v.c+'"></i>'+v.label+'<small>'+cnt+'</small>';
+  d.onclick=()=>{ selTheme=(selTheme===k?null:k); selP=null; selPiece=null; showDefault2(); syncUI(); };
+  legend.appendChild(d);
+});
+// pieces
+const pieces=document.getElementById('pieces');
+Object.entries(PIECES).forEach(([k,label])=>{ const cnt=P.filter(p=>p.p.includes(k)).length; if(!cnt) return;
+  const d=document.createElement('div'); d.className='pc'; d.dataset.pc=k;
+  d.innerHTML='<span>'+label+'</span><small>'+cnt+'</small>';
+  d.onclick=()=>{ selPiece=(selPiece===k?null:k); selP=null; selTheme=null; showPieceInfo(k); syncUI(); };
+  pieces.appendChild(d);
+});
+function showDefault2(){ const d=document.getElementById('detail');
+  if(selTheme){ d.querySelector('.th').textContent='constellation'; d.querySelector('.th').style.color=TH[selTheme].c;
+    d.querySelector('h4').textContent=TH[selTheme].label; d.querySelector('.meta').textContent=P.filter(p=>p.th===selTheme).length+' papers';
+    d.querySelectorAll('p')[1].textContent='The lit stars form this theme’s constellation. Click any star for the paper.'; document.getElementById('grounds').innerHTML=''; }
+  else showDefault();
+}
+function showPieceInfo(k){ const d=document.getElementById('detail'); const ps=P.filter(p=>p.p.includes(k));
+  d.querySelector('.th').textContent='explainer'; d.querySelector('.th').style.color='#6fd0ff';
+  d.querySelector('h4').textContent=PIECES[k]; d.querySelector('.meta').textContent=ps.length+' supporting papers';
+  d.querySelectorAll('p')[1].innerHTML='Lit stars are the evidence behind this explainer: '+ps.map(p=>p.a+' '+p.y).join('; ')+'.';
+  document.getElementById('grounds').innerHTML='<b>Click any lit star</b> to read its specific contribution.';
+}
+function syncUI(){
+  document.querySelectorAll('.lc').forEach(x=>x.classList.toggle('on',x.dataset.th===selTheme));
+  document.querySelectorAll('.pc').forEach(x=>x.classList.toggle('on',x.dataset.pc===selPiece));
+}
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

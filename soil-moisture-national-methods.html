@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Four Flags, Four Pipelines — how nations gather soil-moisture data</title>
+<style>
+  :root{--us:#56b4e9;--eu:#009e73;--cn:#e69f00;--ru:#cc79a7;
+        --bg:#0b1420;--panel:rgba(13,24,36,.92);--ink:#eaf2f7;--dim:#9fb4c4;--grid:rgba(255,255,255,.08)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,"Noto Sans",sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 4px;max-width:1400px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,28px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:960px}
+  .wrap{max-width:1400px;margin:0 auto;padding:10px 16px 40px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px;align-items:center}
+  .chips .lab{font-size:11px;color:var(--dim);margin-right:2px}
+  .chip{font-size:11.5px;padding:5px 11px;border-radius:20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:var(--dim);cursor:pointer}
+  .chip:hover{color:var(--ink)}
+  .chip.on{background:#26465f;color:#fff;border-color:#3a6f9a}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-top-width:4px;border-radius:12px;padding:14px;display:flex;flex-direction:column}
+  .card .hd{display:flex;align-items:center;gap:9px;margin-bottom:2px;flex-wrap:wrap}
+  .card .dot{width:13px;height:13px;border-radius:4px;flex:0 0 auto}
+  .card .nm{font-size:16px;font-weight:700}
+  .card .nm .nmt{font-size:13px;font-weight:600;margin-left:7px}
+  .langbadge{font-size:9px;color:var(--dim);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:1px 7px;margin-left:auto}
+  .card .ag{font-size:10.5px;color:var(--dim);margin:0 0 10px}
+  .card .ag .tr{display:block}
+  .diag{background:#060e18;border:1px solid rgba(255,255,255,.07);border-radius:8px;margin-bottom:10px}
+  .card .mission{font-size:12px;font-weight:600;margin-bottom:2px}
+  .card .mission .tr{display:block;font-weight:500;color:#b9c9d6}
+  .card .method{font-size:11px;color:var(--dim);margin-bottom:10px;line-height:1.4}
+  .card .method .tr{display:block;margin-top:4px}
+  .rows{font-size:11.5px}
+  .r{display:flex;justify-content:space-between;gap:8px;padding:5px 4px;border-radius:5px;border-bottom:1px solid rgba(255,255,255,.06);align-items:flex-start}
+  .r .k{color:var(--dim);flex:0 0 auto;display:flex;flex-direction:column}
+  .r .v{text-align:right;font-weight:600;display:flex;flex-direction:column;align-items:flex-end}
+  .tr{font-size:10px;color:#8aa2b3;font-weight:400;font-style:normal;line-height:1.35}
+  .r.hi{background:rgba(111,208,255,.14)}
+  .phil{margin-top:10px;font-size:11.5px;font-style:italic;color:#dbe6ef;line-height:1.45;border-top:1px dashed rgba(255,255,255,.14);padding-top:9px}
+  .phil .tr{display:block;margin-top:5px;font-style:italic}
+  .open-Full{color:#5fd39a}.open-Mixed{color:#e6c34a}.open-Limited{color:#e0808a}
+  .cap{margin-top:20px;background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 18px}
+  .cap h2{font-size:17px;margin:0 0 4px}
+  .cap .sub{font-size:13px;color:var(--dim);margin:0 0 12px;max-width:900px}
+  .capgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:center}
+  svg{width:100%;height:auto;display:block}
+  .legend{display:flex;gap:16px;font-size:11.5px;color:var(--dim);margin-top:6px;flex-wrap:wrap}
+  .legend .d{display:inline-flex;align-items:center;gap:6px}
+  .legend .ho{width:11px;height:11px;border-radius:50%;border:2px solid #9fb4c4}
+  .legend .fi{width:11px;height:11px;border-radius:50%;background:#9fb4c4}
+  .capnote{font-size:12.5px;color:#dbe6ef;line-height:1.55}
+  .capnote b{color:#fff}
+  .stat{font-size:26px;font-weight:700}
+  .foot{max-width:1400px;margin:0 auto;padding:6px 24px 40px;color:var(--dim);font-size:12px;font-style:italic}
+  .tip{position:fixed;pointer-events:none;background:rgba(6,13,22,.96);border:1px solid rgba(255,255,255,.18);border-radius:7px;padding:6px 9px;font-size:11px;opacity:0;transition:.1s;z-index:40}
+  @media(max-width:1000px){.cards{grid-template-columns:repeat(2,1fr)}.capgrid{grid-template-columns:1fr}}
+  @media(max-width:560px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · Four flags, four pipelines · companion to the soil-moisture explainer</p>
+  <h1>How nations gather soil-moisture data — and whose data becomes “the truth”</h1>
+  <p>“Global soil moisture” isn’t one measurement. It’s a patchwork of national programmes that each chose a different instrument, philosophy, and openness policy — each described here in its own language. Compare the four approaches, then see how the global reference record actually gets assembled, and who gets left out.</p>
+</header>
+
+<div class="wrap">
+  <div class="chips"><span class="lab">Cross-compare:</span>
+    <span class="chip" data-k="band">Frequency band</span>
+    <span class="chip" data-k="mode">Active / passive</span>
+    <span class="chip" data-k="dedic">Dedicated to SM</span>
+    <span class="chip" data-k="open">Data openness</span>
+    <span class="chip" data-k="ground">Ground network</span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="cap">
+    <h2>How the global record actually gets assembled</h2>
+    <p class="sub">The merged climate records scientists rely on are weighted toward whatever data is open and easy to integrate. Each nation’s share of the reference record diverges sharply from its share of on-orbit sensing capability — the gap is what openness policy, not physics, decides.</p>
+    <div class="capgrid">
+      <div>
+        <svg id="dumb" viewBox="0 0 620 300"></svg>
+        <div class="legend">
+          <span class="d"><span class="ho"></span> share of on-orbit sensing capability</span>
+          <span class="d"><span class="fi"></span> share of the merged global reference record</span>
+        </div>
+      </div>
+      <div>
+        <div class="stat" id="capstat">~90%</div>
+        <p class="capnote" id="capnote"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="foot">Mission facts drawn from NASA / ESA / EUMETSAT / CAS sources; the SMAP, SMOS, ASCAT, Sentinel-1, FengYun-3 and Meteor-M programmes are well documented, and China’s WCOM (tri-band L/S/C radiometer) is planned for ~2030. The capability- and record-share percentages are illustrative estimates showing the <i>direction</i> of the openness gap, not measured quantities; Russia’s and China’s current instrument details are the ones most worth re-verifying before publication. Translations are provided for readability; technical terms follow common usage.</p>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const COL={us:'#56b4e9',eu:'#009e73',cn:'#e69f00',ru:'#cc79a7'};
+const NATIONS=[
+  {id:'us',name:'United States',name_t:'Estados Unidos',lang:'Español',
+   ag:'NASA',ag_t:'',mission:'SMAP (2015)',mission_t:'',
+   method:'A purpose-built L-band radiometer on a 6-metre spinning mesh dish.',
+   method_t:'Un radiómetro de banda L construido para este fin, sobre una antena parabólica de malla giratoria de 6 metros.',
+   labels:{band:'Banda',mode:'Modo',dedic:'Dedicado',res:'Resolución',open:'Apertura de datos',ground:'Red terrestre'},
+   band:'L (1.41 GHz)',band_t:'',mode:'Passive',mode_t:'Pasivo',dedic:'Yes — flagship',dedic_t:'Sí — misión insignia',
+   res:'9–36 km',res_t:'',open:'Full',open_t:'Abierto',ground:'USCRN · SCAN',ground_t:'',
+   phil:'Build the one physically optimal instrument; publish a single, hard-validated reference product.',
+   phil_t:'Construir el instrumento físicamente óptimo y publicar un único producto de referencia, rigurosamente validado.'},
+
+  {id:'eu',name:'Europe',name_t:'Europe',lang:'Français',
+   ag:'ESA · EUMETSAT · Copernicus',ag_t:'ASE · EUMETSAT · Copernicus',mission:'SMOS · ASCAT · Sentinel-1',mission_t:'',
+   method:'L-band via interferometry (SMOS), plus C-band scatterometer & SAR — then merged.',
+   method_t:'Bande L par interférométrie (SMOS), plus diffusiomètre et RSO en bande C — puis fusionnés.',
+   labels:{band:'Bande',mode:'Mode',dedic:'Dédié',res:'Résolution',open:'Ouverture des données',ground:'Réseau au sol'},
+   band:'L + C',band_t:'',mode:'Passive + Active',mode_t:'Passif + Actif',dedic:'SMOS yes; others shared',dedic_t:'SMOS oui ; les autres partagés',
+   res:'40 km → tens of m',res_t:'40 km → dizaines de m',open:'Full',open_t:'Ouvert',ground:'ISMN hub',ground_t:'pôle ISMN',
+   phil:'Run many independent methods and fuse them into one long, open climate data record.',
+   phil_t:'Employer plusieurs méthodes indépendantes et les fusionner en un long enregistrement climatique ouvert.'},
+
+  {id:'cn',name:'China',name_t:'中国',lang:'中文',
+   ag:'CNSA · CMA · CAS',ag_t:'国家航天局 · 中国气象局 · 中国科学院',mission:'FengYun-3 MWRI · Gaofen-3',mission_t:'风云三号 微波成像仪 · 高分三号',
+   method:'Multi-frequency imager + C-band SAR now; a tri-band L/S/C interferometer (WCOM) planned.',
+   method_t:'目前为多频成像仪加 C 波段合成孔径雷达；计划发射三频段 L/S/C 干涉式辐射计（水循环观测卫星 WCOM）。',
+   labels:{band:'频段',mode:'模式',dedic:'专用任务',res:'分辨率',open:'数据开放度',ground:'地面观测网'},
+   band:'C/X/K → L/S/C',band_t:'',mode:'Passive + Active',mode_t:'被动 + 主动',dedic:'Not yet — WCOM ~2030',dedic_t:'尚无 —— 水循环卫星约 2030 年',
+   res:'~25 km → m (SAR)',res_t:'约 25 公里 → 米级（SAR）',open:'Mixed',open_t:'部分开放',ground:'Growing networks',ground_t:'地面站网建设中',
+   phil:'Expand fast with multipurpose sensors, then leap to a purpose-built multi-band mission.',
+   phil_t:'先以多用途传感器快速扩张，再跨越到专门设计的多波段任务。'},
+
+  {id:'ru',name:'Russia',name_t:'Россия',lang:'Русский',
+   ag:'Roscosmos · Roshydromet',ag_t:'Роскосмос · Росгидромет',mission:'Meteor-M / MTVZA-GY',mission_t:'Метеор-М / МТВЗА-ГЯ',
+   method:'A general-purpose multi-frequency scanning radiometer; soil moisture is one product of many.',
+   method_t:'Многочастотный сканирующий радиометр общего назначения; влажность почвы — лишь один из многих продуктов.',
+   labels:{band:'Диапазон',mode:'Режим',dedic:'Специализация',res:'Разрешение',open:'Открытость данных',ground:'Наземная сеть'},
+   band:'C/X/K multi',band_t:'C/X/K, многочастотный',mode:'Passive',mode_t:'Пассивный',dedic:'No — multipurpose',dedic_t:'Нет — многоцелевой',
+   res:'~25–50 km',res_t:'~25–50 км',open:'Limited',open_t:'Ограниченная',ground:'Dense gravimetric legacy',ground_t:'Плотная гравиметрическая сеть (наследие)',
+   phil:'Lean on multipurpose meteorology satellites and one of the world’s deepest in-situ traditions.',
+   phil_t:'Опираться на многоцелевые метеоспутники и одну из самых глубоких традиций наземных измерений в мире.'},
+];
+const ROWS=[['band','Band'],['mode','Mode'],['dedic','Dedicated'],['res','Resolution'],['open','Data openness'],['ground','Ground network']];
+
+function diagram(id){
+  const c=COL[id];
+  const s=`<svg class="diag" viewBox="0 0 220 96" width="100%" style="height:auto">`;
+  const ground=`<line x1="8" y1="84" x2="212" y2="84" stroke="rgba(255,255,255,.2)"/>`;
+  if(id==='us'){ return s+ground+
+    `<path d="M96 20 Q110 6 124 20" fill="none" stroke="${c}" stroke-width="2.5"/>`+
+    `<circle cx="110" cy="18" r="2.5" fill="${c}"/>`+
+    `<rect x="104" y="22" width="12" height="10" rx="2" fill="#c9d4dd"/>`+
+    `<rect x="78" y="24" width="20" height="6" fill="#25507a"/><rect x="122" y="24" width="20" height="6" fill="#25507a"/>`+
+    `<path d="M110 32 L96 84 L124 84 Z" fill="${c}" opacity=".16"/>`+
+    `<text x="110" y="94" fill="#9fb4c4" font-size="8" text-anchor="middle">L-band dish · 1000 km</text></svg>`; }
+  if(id==='eu'){ return s+ground+
+    `<g stroke="${c}" stroke-width="2"><line x1="110" y1="22" x2="110" y2="44"/><line x1="110" y1="22" x2="92" y2="10"/><line x1="110" y1="22" x2="128" y2="10"/></g>`+
+    `<g fill="${c}"><circle cx="92" cy="10" r="2.4"/><circle cx="128" cy="10" r="2.4"/><circle cx="110" cy="44" r="2.4"/><circle cx="101" cy="16" r="2"/><circle cx="119" cy="16" r="2"/><circle cx="110" cy="33" r="2"/></g>`+
+    `<path d="M110 44 L84 84 L136 84 Z" fill="${c}" opacity=".14"/>`+
+    `<text x="110" y="94" fill="#9fb4c4" font-size="8" text-anchor="middle">interferometer (Y-array)</text></svg>`; }
+  if(id==='cn'){ return s+ground+
+    `<rect x="100" y="16" width="20" height="14" rx="2" fill="#c9d4dd"/>`+
+    `<rect x="74" y="19" width="22" height="7" fill="#7a5a10"/><rect x="124" y="19" width="22" height="7" fill="#7a5a10"/>`+
+    `<g stroke-width="2"><line x1="106" y1="30" x2="96" y2="84" stroke="${c}"/><line x1="110" y1="30" x2="110" y2="84" stroke="#e6c34a"/><line x1="114" y1="30" x2="124" y2="84" stroke="#f0d060"/></g>`+
+    `<text x="110" y="94" fill="#9fb4c4" font-size="8" text-anchor="middle">multi-freq → future L/S/C</text></svg>`; }
+  if(id==='ru'){ return s+ground+
+    `<rect x="102" y="16" width="16" height="12" rx="2" fill="#c9d4dd"/>`+
+    `<rect x="80" y="18" width="20" height="6" fill="#5a3a5a"/><rect x="120" y="18" width="20" height="6" fill="#5a3a5a"/>`+
+    `<ellipse cx="110" cy="40" rx="16" ry="6" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="3 2"/>`+
+    `<path d="M110 28 L90 84 L130 84 Z" fill="${c}" opacity=".14"/>`+
+    `<text x="110" y="94" fill="#9fb4c4" font-size="8" text-anchor="middle">conical multi-freq scan</text></svg>`; }
+  return s+`</svg>`;
+}
+function trline(t){ return t? `<em class="tr">${t}</em>` : ''; }
+
+const cards=document.getElementById('cards');
+NATIONS.forEach(n=>{
+  const el=document.createElement('div'); el.className='card'; el.style.borderTopColor=COL[n.id]; el.dataset.id=n.id;
+  let rows='';
+  ROWS.forEach(([k,label])=>{ const v=n[k], vt=(n[k+'_t']&&n[k+'_t']!==v)?n[k+'_t']:''; const tl=n.labels[k];
+    let vcls=(k==='open')?' class="open-'+v+'"':'';
+    rows+=`<div class="r" data-r="${k}"><span class="k">${label}${trline(tl)}</span>`
+      +`<span class="v"><span${vcls}>${v}</span>${trline(vt)}</span></div>`; });
+  const nmt = n.name_t && n.name_t!==n.name ? `<span class="nmt" style="color:${COL[n.id]}">${n.name_t}</span>` : '';
+  el.innerHTML=`<div class="hd"><span class="dot" style="background:${COL[n.id]}"></span><span class="nm">${n.name}${nmt}</span><span class="langbadge">EN · ${n.lang}</span></div>`
+    +`<p class="ag">${n.ag}${trline(n.ag_t&&n.ag_t!==n.ag?n.ag_t:'')}</p>`+diagram(n.id)
+    +`<div class="mission">${n.mission}${trline(n.mission_t&&n.mission_t!==n.mission?n.mission_t:'')}</div>`
+    +`<div class="method">${n.method}${trline(n.method_t)}</div>`
+    +`<div class="rows">${rows}</div>`
+    +`<div class="phil">“${n.phil}”${trline('“'+n.phil_t+'”')}</div>`;
+  cards.appendChild(el);
+});
+let activeChip=null;
+document.querySelectorAll('.chip').forEach(ch=>ch.onclick=()=>{
+  const k=ch.dataset.k;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('.r').forEach(r=>r.classList.remove('hi'));
+  if(activeChip===k){ activeChip=null; return; }
+  activeChip=k; ch.classList.add('on');
+  document.querySelectorAll('.r[data-r="'+k+'"]').forEach(r=>r.classList.add('hi'));
+});
+
+// ---- capstone dumbbell ----
+const DATA=[ {id:'eu',name:'Europe',name_t:'',cap:34,rec:52}, {id:'us',name:'United States',name_t:'Estados Unidos',cap:28,rec:38},
+             {id:'cn',name:'China',name_t:'中国',cap:26,rec:7}, {id:'ru',name:'Russia',name_t:'Россия',cap:12,rec:3} ];
+const tip=document.createElement('div'); tip.className='tip'; document.body.appendChild(tip);
+(function(){
+  const svg=document.getElementById('dumb'); const W=620,H=300,M={l:118,r:56,t:16,b:34};
+  const pw=W-M.l-M.r, ph=H-M.t-M.b; const max=60;
+  const X=v=>M.l+v/max*pw; const rowY=i=>M.t+ph*(i+0.5)/DATA.length;
+  function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  for(let v=0;v<=max;v+=10){ svg.appendChild(el('line',{x1:X(v),y1:M.t,x2:X(v),y2:M.t+ph,stroke:'rgba(255,255,255,.07)'}));
+    const t=el('text',{x:X(v),y:H-16,fill:'#9fb4c4','font-size':10,'text-anchor':'middle'});t.textContent=v+'%';svg.appendChild(t); }
+  const xl=el('text',{x:M.l+pw/2,y:H-2,fill:'#9fb4c4','font-size':10.5,'text-anchor':'middle'});xl.textContent='share (%)';svg.appendChild(xl);
+  DATA.forEach((d,i)=>{ const y=rowY(i), c=COL[d.id];
+    const nm=el('text',{x:M.l-12,y:y+(d.name_t?0:4),fill:'#eaf2f7','font-size':12,'font-weight':600,'text-anchor':'end'});nm.textContent=d.name;svg.appendChild(nm);
+    if(d.name_t){ const nt=el('text',{x:M.l-12,y:y+13,fill:c,'font-size':10,'text-anchor':'end'});nt.textContent=d.name_t;svg.appendChild(nt); }
+    svg.appendChild(el('line',{x1:X(d.cap),y1:y,x2:X(d.rec),y2:y,stroke:c,'stroke-width':3,opacity:.55}));
+    const dir=Math.sign(d.rec-d.cap); const ax=X(d.rec)-dir*8;
+    svg.appendChild(el('path',{d:`M${X(d.rec)},${y} L${ax},${y-4} L${ax},${y+4} Z`,fill:c}));
+    const c1=el('circle',{cx:X(d.cap),cy:y,r:6,fill:'#0b1420',stroke:c,'stroke-width':2.5,style:'cursor:pointer'}); svg.appendChild(c1);
+    const c2=el('circle',{cx:X(d.rec),cy:y,r:6.5,fill:c,style:'cursor:pointer'}); svg.appendChild(c2);
+    const lv=el('text',{x:X(d.rec)+(dir>=0?12:-12),y:y+4,fill:'#fff','font-size':11,'font-weight':700,'text-anchor':dir>=0?'start':'end'});lv.textContent=d.rec+'%';svg.appendChild(lv);
+    const lc=el('text',{x:X(d.cap)+(dir>=0?-12:12),y:y+4,fill:'#9fb4c4','font-size':10,'text-anchor':dir>=0?'end':'start'});lc.textContent=d.cap+'%';svg.appendChild(lc);
+    [c1,c2].forEach((cc,idx)=>{ cc.addEventListener('mousemove',ev=>{tip.innerHTML='<b>'+d.name+'</b><br>'+(idx? 'record weight: '+d.rec+'%':'capability: '+d.cap+'%');tip.style.opacity=1;tip.style.left=(ev.clientX+12)+'px';tip.style.top=(ev.clientY+12)+'px';});
+      cc.addEventListener('mouseleave',()=>tip.style.opacity=0); });
+  });
+})();
+document.getElementById('capstat').textContent='~90%';
+document.getElementById('capnote').innerHTML='Under open-data weighting, roughly <b>90%</b> of the global reference record is built from US + European sensors — though they carry only about <b>62%</b> of on-orbit capability. Russia and China fall from a combined ~38% of capability to under <b>10%</b> of the record. The world’s soil-moisture “ground truth” is shaped less by which sensor is best than by <b>which institutions gave their data away</b>.';
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

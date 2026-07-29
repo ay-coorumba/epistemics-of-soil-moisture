@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Turn Off a Correction — the sandbox that makes invisible corrections visible</title>
+<style>
+  :root{--bg:#0b1420;--panel:rgba(13,24,36,.92);--ink:#eaf2f7;--dim:#9fb4c4;--acc:#6fd0ff;--bad:#e0724a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:#6fd0ff}
+  header{padding:16px 24px 4px;max-width:1360px;margin:0 auto}
+  .kick{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 6px}
+  h1{font-size:clamp(20px,3vw,27px);margin:0 0 6px;font-weight:700;letter-spacing:-.3px}
+  header p{margin:0;color:var(--dim);font-size:14px;max-width:940px}
+  .wrap{max-width:1360px;margin:0 auto;padding:8px 16px 30px;display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:16px}
+  .maps{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .mp{background:#070f19;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px}
+  .mp h3{margin:0 0 8px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center}
+  .mp h3 span{color:var(--dim);font-weight:400;font-size:11px}
+  .cvwrap{position:relative}
+  canvas.map{width:100%;height:auto;display:block;border-radius:6px;image-rendering:pixelated;image-rendering:crisp-edges}
+  .tag{position:absolute;font-size:9.5px;color:#fff;background:rgba(6,13,22,.72);border:1px solid rgba(255,255,255,.25);padding:1px 5px;border-radius:4px;pointer-events:none;transform:translate(-50%,-50%)}
+  .cbar{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:10px;color:var(--dim)}
+  .cbar .g{height:9px;flex:1;border-radius:5px}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .box{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px}
+  .box h3{margin:0 0 10px;font-size:13px}
+  .corr{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid rgba(255,255,255,.1);border-radius:8px;margin:6px 0;cursor:pointer;transition:.15s}
+  .corr.off{border-color:var(--bad);background:rgba(224,114,74,.1)}
+  .corr .sw{width:34px;height:19px;border-radius:19px;background:#2f6d46;position:relative;flex:0 0 auto;transition:.15s}
+  .corr.off .sw{background:#7a3a2a}
+  .corr .sw::after{content:"";position:absolute;top:2px;left:17px;width:15px;height:15px;border-radius:50%;background:#fff;transition:.15s}
+  .corr.off .sw::after{left:2px}
+  .corr .nm{font-size:12.5px;font-weight:600}
+  .corr .nm small{display:block;color:var(--dim);font-weight:400;font-size:10px}
+  .corr .dmg{margin-left:auto;text-align:right;font-size:11px;font-variant-numeric:tabular-nums;color:var(--dim)}
+  .corr .dmg b{color:#fff;display:block;font-size:13px}
+  .sl{font-size:12px;color:var(--dim);margin:10px 0 3px}
+  input[type=range]{width:100%}
+  .rmse{display:flex;gap:14px;align-items:baseline}
+  .rmse .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+  .rmse .u{font-size:12px;color:var(--dim)}
+  .rmse .base{margin-left:auto;font-size:11px;color:var(--dim);text-align:right}
+  #msg{font-size:12.5px;color:#dbe6ef;line-height:1.5}
+  #msg b{color:#fff}
+  .btn{width:100%;margin-top:8px;padding:8px;border:0;border-radius:7px;background:#333f4c;color:#fff;font-weight:600;cursor:pointer;font-size:12px}
+  .foot{max-width:1360px;margin:0 auto;padding:0 24px 40px;color:var(--dim);font-size:12px;font-style:italic}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}.maps{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <p class="kick">Kaswari AgTech · Turn off a correction · companion to the soil-moisture explainer</p>
+  <h1>Make the invisible corrections visible — by breaking them</h1>
+  <p>Every SMAP pixel is the output of a retrieval that quietly corrects for vegetation, roughness, interference and temperature. Those corrections are invisible when they work. Switch one off and watch the error appear exactly where the physics says it should — dry stripes over forests, a spike over the interference source. The left map is what you’d publish; the right map is how wrong it is.</p>
+</header>
+
+<div class="wrap">
+  <div class="maps">
+    <div class="mp">
+      <h3>Retrieved soil moisture <span>what you'd publish</span></h3>
+      <div class="cvwrap"><canvas id="mMoist" class="map" width="128" height="80"></canvas>
+        <div class="tag" id="tagForest" style="left:32%;top:58%">forest</div>
+        <div class="tag" id="tagRFI" style="left:84%;top:80%">RFI city</div>
+      </div>
+      <div class="cbar"><span>dry</span><div class="g" style="background:linear-gradient(90deg,#d8c69a,#8fae86,#4f93b8,#255a9a)"></div><span>wet</span></div>
+    </div>
+    <div class="mp">
+      <h3>Error vs truth <span id="errsub">retrieved − true</span></h3>
+      <div class="cvwrap"><canvas id="mErr" class="map" width="128" height="80"></canvas></div>
+      <div class="cbar"><span>too dry</span><div class="g" style="background:linear-gradient(90deg,#c85a2a,#e0a074,#e6e8eb,#6aa0d8,#2a5ec8)"></div><span>too wet</span></div>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <h3>Retrieval corrections <span style="color:var(--dim);font-weight:400">— toggle to break</span></h3>
+      <div class="corr" data-c="rfi"><div class="sw"></div><div class="nm">RFI filtering<small>removes interference</small></div><div class="dmg" id="d_rfi"></div></div>
+      <div class="corr" data-c="veg"><div class="sw"></div><div class="nm">Vegetation model<small>corrects canopy emission</small></div><div class="dmg" id="d_veg"></div></div>
+      <div class="corr" data-c="rough"><div class="sw"></div><div class="nm">Roughness model<small>corrects surface roughness</small></div><div class="dmg" id="d_rough"></div></div>
+      <div class="corr" data-c="temp"><div class="sw"></div><div class="nm">Soil-temperature model<small>uses NWP temperature</small></div><div class="dmg" id="d_temp"></div></div>
+    </div>
+    <div class="box">
+      <h3>Scene</h3>
+      <div class="sl">Forest density <span id="vegv" style="color:#6fd0ff"></span></div><input type="range" id="veg" min="0" max="150" value="100">
+      <div class="sl">Interference strength <span id="rfiv" style="color:#6fd0ff"></span></div><input type="range" id="rfi" min="0" max="150" value="100">
+      <button class="btn" id="reset">Reset all corrections ON</button>
+    </div>
+    <div class="box">
+      <h3>Field error (RMSE)</h3>
+      <div class="rmse"><div class="big" id="rmsev">0.000</div><div class="u">m³/m³</div><div class="base" id="rmsebase"></div></div>
+      <p id="msg" style="margin-top:10px">All corrections on: the map tracks the truth to within noise. Turn one off to see what it was hiding.</p>
+    </div>
+  </div>
+</div>
+<p class="foot">A simplified τ–ω radiative-transfer forward model and bisection retrieval over a synthetic scene — physically faithful in the <i>direction</i> and <i>location</i> of each error, illustrative in exact magnitude. Real SMAP retrieval is more elaborate (dual-channel options, ancillary flags, iterative solvers); this is a teaching sandbox, not the operational algorithm.</p>
+
+<script>
+const NX=128, NY=80, N=NX*NY;
+const costh=Math.cos(40*Math.PI/180), OMEGA=0.05, BVEG=0.12;
+// ---- physics ----
+function refl(m){ const eps=3.5+22*m, s=Math.sqrt(eps), r=((s-1)/(s+1)); return r*r; }
+function fwd(m,tau,h,Ts){ const r=refl(m)*Math.exp(-h), e=1-r, g=Math.exp(-tau/costh);
+  return Ts*( e*g + (1-OMEGA)*(1-g)*(1+r*g) ); }
+function retrieve(Tb,tau,h,Ts){ let lo=0,hi=0.55; for(let k=0;k<24;k++){ const mid=(lo+hi)*0.5; if(fwd(mid,tau,h,Ts)>Tb) lo=mid; else hi=mid; } return (lo+hi)*0.5; }
+// ---- synthetic scene (base fields) ----
+function gauss(x,y,cx,cy,sx,sy){ const dx=(x-cx)/sx, dy=(y-cy)/sy; return Math.exp(-(dx*dx+dy*dy)); }
+function hash(i){ let h=Math.sin(i*12.9898)*43758.5453; return (h-Math.floor(h))-0.5; } // deterministic ~[-.5,.5]
+const trueM=new Float32Array(N), vwcB=new Float32Array(N), rfiB=new Float32Array(N), hR=new Float32Array(N), Ts=new Float32Array(N), noise=new Float32Array(N);
+for(let j=0;j<NY;j++)for(let i=0;i<NX;i++){ const k=j*NX+i, x=i/(NX-1), y=j/(NY-1);
+  trueM[k]=0.13+0.20*x+0.04*Math.sin(y*6.0)+0.03*Math.sin(x*9.0+2.0);
+  vwcB[k]=0.3 + 4.6*gauss(x,y,0.32,0.58,0.15,0.16) + 3.6*gauss(x,y,0.62,0.30,0.12,0.13);
+  rfiB[k]=gauss(x,y,0.84,0.80,0.09,0.09);          // 0..1, scaled to Kelvin by slider
+  hR[k]=0.08 + 0.22*gauss(x,y,0.20,0.24,0.16,0.16);
+  Ts[k]=287 + 5*y + 1.5*Math.sin(x*7);
+  noise[k]=hash(k+1)*0.9;                            // ~±0.45 K
+}
+// ---- state ----
+const corr={rfi:true,veg:true,rough:true,temp:true};
+let vegScale=1, rfiScale=1;
+const mMoist=document.getElementById('mMoist'), gM=mMoist.getContext('2d');
+const mErr=document.getElementById('mErr'), gE=mErr.getContext('2d');
+const imgM=gM.createImageData(NX,NY), imgE=gE.createImageData(NX,NY);
+
+function moistColor(m){ // sequential dry->wet
+  const t=Math.max(0,Math.min(1,(m-0.05)/0.35));
+  // dry tan (216,198,154) -> mid green-blue -> deep blue (37,90,154)
+  const stops=[[216,198,154],[143,174,134],[79,147,184],[37,90,154]];
+  const p=t*(stops.length-1), i=Math.min(stops.length-2,Math.floor(p)), f=p-i;
+  return [0,1,2].map(c=>stops[i][c]+(stops[i+1][c]-stops[i][c])*f);
+}
+function errColor(e){ // diverging: neg(too dry)=orange, 0=neutral, pos(too wet)=blue
+  const t=Math.max(-1,Math.min(1,e/0.12));
+  const neg=[200,90,42], mid=[230,232,235], pos=[42,94,200];
+  if(t<0){ const f=-t; return [0,1,2].map(c=>mid[c]+(neg[c]-mid[c])*f); }
+  const f=t; return [0,1,2].map(c=>mid[c]+(pos[c]-mid[c])*f);
+}
+
+function computeField(state){ // returns {retr:Float32Array, se:number} for given correction state
+  let se=0; const retr=new Float32Array(N);
+  for(let k=0;k<N;k++){
+    const vwc=vwcB[k]*vegScale, tauT=BVEG*vwc, hT=hR[k], TsT=Ts[k];
+    const rfiK=rfiB[k]*rfiScale*42;
+    const Tb=fwd(trueM[k],tauT,hT,TsT)+noise[k]+rfiK;         // observed (truth physics)
+    const TbUsed=Tb-(state.rfi?rfiK:0);                        // rfi filter removes it if on
+    const tauUsed=state.veg?tauT:0;
+    const hUsed=state.rough?hT:0;
+    const TsUsed=state.temp?TsT:290;
+    const m=retrieve(TbUsed,tauUsed,hUsed,TsUsed);
+    retr[k]=m; const d=m-trueM[k]; se+=d*d;
+  }
+  return {retr, rmse:Math.sqrt(se/N)};
+}
+
+let baseRMSE=null;
+function render(){
+  const cur=computeField(corr);
+  // draw maps
+  for(let k=0;k<N;k++){ const cm=moistColor(cur.retr[k]); const o=k*4;
+    imgM.data[o]=cm[0];imgM.data[o+1]=cm[1];imgM.data[o+2]=cm[2];imgM.data[o+3]=255;
+    const ec=errColor(cur.retr[k]-trueM[k]);
+    imgE.data[o]=ec[0];imgE.data[o+1]=ec[1];imgE.data[o+2]=ec[2];imgE.data[o+3]=255; }
+  gM.putImageData(imgM,0,0); gE.putImageData(imgE,0,0);
+  // rmse readout
+  if(baseRMSE===null) baseRMSE=cur.rmse;
+  document.getElementById('rmsev').textContent=cur.rmse.toFixed(3);
+  const allOn=computeField({rfi:true,veg:true,rough:true,temp:true}).rmse;
+  document.getElementById('rmsebase').innerHTML='baseline (all on):<br>'+allOn.toFixed(3)+' m³/m³';
+  // per-correction damage: ΔRMSE from flipping each from current
+  const names={rfi:'RFI filtering',veg:'Vegetation',rough:'Roughness',temp:'Soil temp'};
+  for(const c of ['rfi','veg','rough','temp']){
+    const flipped=Object.assign({},corr); flipped[c]=!flipped[c];
+    const r2=computeField(flipped).rmse; const dd=r2-cur.rmse;
+    const el=document.getElementById('d_'+c);
+    if(corr[c]) el.innerHTML='<b style="color:#8fd0ff">ON</b>off → +'+(Math.max(0,dd)).toFixed(3);
+    else el.innerHTML='<b style="color:'+'#e0724a'+'">OFF</b>+'+(cur.rmse-r2>0?(cur.rmse-r2).toFixed(3):'0.000')+' now';
+    document.querySelector('.corr[data-c="'+c+'"]').classList.toggle('off',!corr[c]);
+  }
+  // message
+  msg(cur.rmse, allOn);
+}
+function msg(rmse,allOn){
+  const offs=Object.keys(corr).filter(c=>!corr[c]);
+  let m;
+  if(offs.length===0){ m='All corrections on: the map tracks the truth to within sensor noise (RMSE '+rmse.toFixed(3)+'). Every correction below is doing invisible work — switch one off to expose it.'; }
+  else {
+    const parts=[];
+    if(!corr.veg) parts.push('<b>Ignoring vegetation</b> makes the forest patches read far too dry — the canopy’s own microwave emission is misread as bright, dry soil.');
+    if(!corr.rfi) parts.push('<b>Skipping RFI filtering</b> lets the interference “city” blow out — its spurious signal is read as bone-dry ground.');
+    if(!corr.rough) parts.push('<b>Ignoring roughness</b> biases the rough patch dry — extra emissivity from the rough surface is mistaken for high emissivity, i.e. dry soil.');
+    if(!corr.temp) parts.push('<b>Dropping the temperature model</b> (assuming a flat 290 K) tilts the whole field wet or dry wherever the real land temperature differs.');
+    m=parts.join(' ')+' RMSE is now <b>'+rmse.toFixed(3)+'</b> vs '+allOn.toFixed(3)+' with everything on — a '+(rmse/allOn).toFixed(1)+'× degradation.';
+  }
+  document.getElementById('msg').innerHTML=m;
+}
+
+// interactions
+document.querySelectorAll('.corr').forEach(el=>el.onclick=()=>{ const c=el.dataset.c; corr[c]=!corr[c]; render(); });
+document.getElementById('veg').oninput=function(){ vegScale=this.value/100; document.getElementById('vegv').textContent=this.value+'%'; render(); };
+document.getElementById('rfi').oninput=function(){ rfiScale=this.value/100; document.getElementById('rfiv').textContent=this.value+'%'; render(); };
+document.getElementById('reset').onclick=()=>{ corr.rfi=corr.veg=corr.rough=corr.temp=true; render(); };
+document.getElementById('vegv').textContent='100%'; document.getElementById('rfiv').textContent='100%';
+render();
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · Soil Moisture Sensors — what the five products measure</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1622;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#eaf2f7}
+  #app{position:fixed;inset:0;display:block}
+  #hud{position:fixed;top:12px;left:12px;width:288px;background:rgba(12,22,34,.85);
+       border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:14px 16px;backdrop-filter:blur(6px);max-height:94vh;overflow:auto}
+  #hud h1{font-size:15px;margin:0 0 2px;font-weight:600}
+  #hud .sub{font-size:11px;color:#9fb4c4;margin:0 0 12px}
+  #hud label{display:block;font-size:12px;margin:12px 0 4px;color:#cde0ee}
+  #hud .val{color:#6fd0ff;font-weight:600}
+  #hud input[type=range]{width:100%}
+  #hud button{margin-top:12px;width:100%;padding:8px;border:0;border-radius:7px;
+       background:#2f7fbf;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+  #hud button:hover{background:#3a92d8}
+  #hud .toggle{margin-top:10px;font-size:12px;color:#cde0ee;display:flex;align-items:center;gap:7px;cursor:pointer}
+  .chips{margin-top:6px}
+  .chip{display:flex;align-items:center;gap:8px;padding:6px 8px;margin:5px 0;border-radius:7px;
+        background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:12px}
+  .chip.off{opacity:.4}
+  .chip .sw{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+  .chip .nm{font-weight:600}
+  .chip .rd{margin-left:auto;font-variant-numeric:tabular-nums;color:#8fd0ff;font-weight:600}
+  .chip small{display:block;color:#9fb4c4;font-weight:400;font-size:10px}
+  #log{margin-top:12px;font-size:10.5px;color:#8aa2b3;line-height:1.5;max-height:70px;overflow:auto}
+  .lbl{position:fixed;transform:translate(-100%,-50%);font-size:11px;font-weight:600;color:#fff;
+       background:rgba(9,17,26,.82);border:1px solid rgba(120,200,255,.4);padding:3px 7px;border-radius:5px;
+       pointer-events:none;white-space:nowrap;text-shadow:0 1px 2px #000}
+  .lbl small{display:block;font-weight:400;color:#8fd0ff;font-size:9.5px}
+  .lbl .r{color:#ffe08a}
+  .dax{position:fixed;transform:translate(-50%,-50%);font-size:10px;color:#bcd;pointer-events:none;
+       background:rgba(9,17,26,.6);padding:1px 5px;border-radius:4px;white-space:nowrap}
+  #hint{position:fixed;bottom:12px;left:12px;font-size:11px;color:#7d95a6;background:rgba(12,22,34,.7);
+        padding:6px 10px;border-radius:6px}
+</style>
+</head>
+<body>
+<canvas id="app"></canvas>
+<div id="hud">
+  <h1>Soil Moisture · what they measure</h1>
+  <p class="sub">Kaswari AgTech · Innisfail, QLD terrain · 5 microwave products compared · depth × footprint × revisit</p>
+
+  <div class="chips" id="chips"></div>
+
+  <button id="measure">◎ Take a measurement</button>
+
+  <label>Surface moisture <span class="val" id="wetv">35%</span></label>
+  <input type="range" id="wet" min="2" max="98" step="1" value="35">
+
+  <label>Depth zoom <span class="val" id="dzv">1.0×</span></label>
+  <input type="range" id="dz" min="0.5" max="3" step="0.1" value="1">
+
+  <div class="toggle"><input type="checkbox" id="truescale"><span>Footprints: <b id="scmode">nested (log)</b></span></div>
+
+  <div id="log"></div>
+</div>
+<div id="hint">drag to orbit · scroll to zoom · right-drag to pan · core = a soil column, bands = each sensor's sensing depth</div>
+
+<script src="https://code.playcanvas.com/playcanvas-stable.min.js"></script>
+<script>
+// ---------- geography (reused from the flood POC) ----------
+const BBOX = { w:145.90, s:-17.56, e:146.05, n:-17.49 };
+const DEM_W = 240, DEM_H = 120;
+const M_PER_LON = 111320 * Math.cos((BBOX.n+BBOX.s)/2 * Math.PI/180);
+const M_PER_LAT = 110540;
+const WORLD_W = (BBOX.e-BBOX.w) * M_PER_LON;   // ~15.9 km
+const WORLD_H = (BBOX.n-BBOX.s) * M_PER_LAT;   // ~7.7 km
+const EXAG = 4;                                // terrain vertical exaggeration (fixed)
+
+// ---------- sensor roster (hard-coded, analogous to GAUGES) ----------
+// depth = surface sensing depth (cm); foot = effective ground footprint (m);
+// revisit = days; col = colour; rz = root-zone depth (cm) for SMAP L4 only.
+const SENSORS = [
+  { id:'smap',  n:'SMAP',       band:'L',   freq:'1.41 GHz', depth:5, rz:100, foot:9000,  revisit:2.5, col:[0.24,0.74,1.00], note:'L-band · reference · root-zone L4' },
+  { id:'smos',  n:'SMOS',       band:'L',   freq:'1.41 GHz', depth:5,         foot:40000, revisit:3.0, col:[0.46,0.58,0.98], note:'L-band · first mission · RFI-prone' },
+  { id:'ascat', n:'ASCAT',      band:'C',   freq:'5.26 GHz', depth:2,         foot:25000, revisit:1.0, col:[0.98,0.74,0.26], note:'C-band scat · long climate record' },
+  { id:'s1',    n:'Sentinel-1', band:'C',   freq:'5.40 GHz', depth:4,         foot:50,    revisit:9.0, col:[0.42,0.92,0.52], note:'C-band SAR · field-scale · slow revisit' },
+  { id:'amsr2', n:'AMSR2',      band:'C/X', freq:'6.9/10.6',  depth:1,        foot:25000, revisit:1.5, col:[0.96,0.52,0.78], note:'C/X-band · multi-variable · supporting' },
+];
+SENSORS.forEach(s=>{ s.on=true; s.pulse=-1; });
+
+// ---------- log ----------
+const logEl = document.getElementById('log');
+const log = m => { logEl.innerHTML = "› "+m+"<br>"+logEl.innerHTML; };
+
+// ---------- DEM (reused verbatim from flood POC) ----------
+let heights = new Float32Array(DEM_W*DEM_H);
+let hMin = 0, hMax = 1;
+function proceduralDEM(){
+  for(let j=0;j<DEM_H;j++) for(let i=0;i<DEM_W;i++){
+    const u = i/(DEM_W-1), v = j/(DEM_H-1);
+    let base = (1-u)*430;
+    base += Math.sin(v*7+u*4)*35*(1-u) + Math.cos(u*9)*18*(1-u);
+    const channel = 0.5 + 0.16*Math.sin(u*6.0);
+    base -= Math.max(0, 26 - Math.abs(v-channel)*260);
+    heights[j*DEM_W+i] = Math.max(0.5, base);
+  }
+  finalizeDEM("procedural relief (fallback)");
+}
+function finalizeDEM(src){
+  hMin=1e9; hMax=-1e9;
+  for(const h of heights){ if(h<hMin)hMin=h; if(h>hMax)hMax=h; }
+  log("terrain ready: "+src+" · "+hMin.toFixed(0)+"–"+hMax.toFixed(0)+" m");
+  buildScene();
+}
+function loadImg(u){ return new Promise((res,rej)=>{ const im=new Image(); im.crossOrigin='anonymous';
+  im.onload=()=>res(im); im.onerror=()=>rej(new Error('tile')); im.src=u; }); }
+async function loadDEM(){
+  const z=13, n=Math.pow(2,z);
+  const lon2t = lon => (lon+180)/360*n;
+  const lat2t = lat => { const r=lat*Math.PI/180; return (1-Math.asinh(Math.tan(r))/Math.PI)/2*n; };
+  const tx0=Math.floor(lon2t(BBOX.w)), tx1=Math.floor(lon2t(BBOX.e));
+  const ty0=Math.floor(lat2t(BBOX.n)), ty1=Math.floor(lat2t(BBOX.s));
+  const cols=tx1-tx0+1, rows=ty1-ty0+1;
+  const cvs=document.createElement('canvas'); cvs.width=cols*256; cvs.height=rows*256;
+  const ctx=cvs.getContext('2d',{ willReadFrequently:true });
+  try{
+    const jobs=[];
+    for(let tx=tx0;tx<=tx1;tx++) for(let ty=ty0;ty<=ty1;ty++){
+      const url="https://s3.amazonaws.com/elevation-tiles-prod/terrarium/"+z+"/"+tx+"/"+ty+".png";
+      jobs.push(loadImg(url).then(im=>ctx.drawImage(im,(tx-tx0)*256,(ty-ty0)*256)));
+    }
+    await Promise.all(jobs);
+    const id=ctx.getImageData(0,0,cvs.width,cvs.height).data, W=cvs.width, H=cvs.height;
+    const decode=(px,py)=>{ px=Math.max(0,Math.min(W-1,px)); py=Math.max(0,Math.min(H-1,py));
+      const o=(py*W+px)*4; return (id[o]*256 + id[o+1] + id[o+2]/256) - 32768; };
+    for(let j=0;j<DEM_H;j++){
+      const lat=BBOX.n-(j/(DEM_H-1))*(BBOX.n-BBOX.s);
+      const gy=Math.round(lat2t(lat)*256 - ty0*256);
+      for(let i=0;i<DEM_W;i++){
+        const lon=BBOX.w+(i/(DEM_W-1))*(BBOX.e-BBOX.w);
+        const gx=Math.round(lon2t(lon)*256 - tx0*256);
+        heights[j*DEM_W+i]=Math.max(0, decode(gx,gy));
+      }
+    }
+    finalizeDEM("AWS Terrarium 30 m (z"+z+")");
+  }catch(e){ log("terrain tiles failed ("+e.message+") → fallback"); proceduralDEM(); }
+}
+function sampleHeight(lon,lat){
+  const fx=(lon-BBOX.w)/(BBOX.e-BBOX.w)*(DEM_W-1);
+  const fy=(BBOX.n-lat)/(BBOX.n-BBOX.s)*(DEM_H-1);
+  const i=Math.max(0,Math.min(DEM_W-2,Math.floor(fx))), j=Math.max(0,Math.min(DEM_H-2,Math.floor(fy)));
+  const tx=fx-i, ty=fy-j;
+  const h00=heights[j*DEM_W+i], h10=heights[j*DEM_W+i+1];
+  const h01=heights[(j+1)*DEM_W+i], h11=heights[(j+1)*DEM_W+i+1];
+  return (h00*(1-tx)+h10*tx)*(1-ty) + (h01*(1-tx)+h11*tx)*ty;
+}
+
+// ---------- PlayCanvas ----------
+const canvas = document.getElementById('app');
+const app = new pc.Application(canvas, { mouse:new pc.Mouse(canvas), touch:new pc.TouchDevice(canvas) });
+app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+app.setCanvasResolution(pc.RESOLUTION_AUTO);
+window.addEventListener('resize',()=>app.resizeCanvas());
+app.start();
+
+const cam = new pc.Entity('camera');
+cam.addComponent('camera',{ clearColor:new pc.Color(0.80,0.86,0.91), farClip:200000, nearClip:5, fov:55 });
+app.root.addChild(cam);
+
+const sun = new pc.Entity('sun');
+sun.addComponent('light',{ type:'directional', color:new pc.Color(1,0.96,0.86), intensity:1.1,
+  castShadows:true, shadowBias:0.2, shadowDistance:60000, normalOffsetBias:0.06 });
+sun.setEulerAngles(52,205,0);
+app.root.addChild(sun);
+app.scene.ambientLight = new pc.Color(0.42,0.5,0.58);
+
+let skyDome=null, terrainEnt=null;
+
+function buildSky(){
+  const g=document.createElement('canvas'); g.width=8; g.height=256;
+  const gx=g.getContext('2d'), grd=gx.createLinearGradient(0,0,0,256);
+  grd.addColorStop(0.00,'#3d72c6'); grd.addColorStop(0.50,'#9cbcd6'); grd.addColorStop(1.00,'#d3dde4');
+  gx.fillStyle=grd; gx.fillRect(0,0,8,256);
+  const tex=new pc.Texture(app.graphicsDevice,{ mipmaps:true, addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE });
+  tex.setSource(g);
+  const mat=new pc.StandardMaterial();
+  mat.useLighting=false; mat.useFog=false;
+  mat.diffuse=new pc.Color(0,0,0); mat.emissive=new pc.Color(1,1,1);
+  mat.emissiveMap=tex; mat.cull=pc.CULLFACE_FRONT; mat.update();
+  skyDome=new pc.Entity('sky');
+  skyDome.addComponent('render',{ type:'sphere', castShadows:false, receiveShadows:false });
+  skyDome.render.meshInstances[0].material=mat;
+  skyDome.setLocalScale(120000,120000,120000);
+  app.root.addChild(skyDome);
+  app.scene.fog=pc.FOG_LINEAR;
+  app.scene.fogColor=new pc.Color(0.82,0.87,0.91);
+  app.scene.fogStart=12000; app.scene.fogEnd=90000;
+  app.scene.ambientLight=new pc.Color(0.40,0.46,0.56);
+  sun.setEulerAngles(34,208,0);
+  sun.light.color=new pc.Color(1.0,0.9,0.74);
+  sun.light.intensity=1.25;
+}
+
+function buildTerrain(){
+  const positions=[], uvs=[], indices=[];
+  for(let j=0;j<DEM_H;j++) for(let i=0;i<DEM_W;i++){
+    positions.push((i/(DEM_W-1)-0.5)*WORLD_W, heights[j*DEM_W+i]*EXAG, (j/(DEM_H-1)-0.5)*WORLD_H);
+    uvs.push(i/(DEM_W-1), 1-j/(DEM_H-1));
+  }
+  for(let j=0;j<DEM_H-1;j++) for(let i=0;i<DEM_W-1;i++){
+    const a=j*DEM_W+i, b=a+1, c=a+DEM_W, d=c+1; indices.push(a,c,b, b,c,d);
+  }
+  const normals = pc.calculateNormals(positions, indices);
+  const mesh = pc.createMesh(app.graphicsDevice, positions, { uvs, normals, indices });
+  const mat = new pc.StandardMaterial();
+  mat.diffuse = new pc.Color(0.32,0.4,0.26); mat.gloss=0.12; mat.metalness=0; mat.useMetalness=true; mat.update();
+  terrainEnt = new pc.Entity('terrain');
+  terrainEnt.addComponent('render',{ meshInstances:[ new pc.MeshInstance(mesh, mat) ], castShadows:true, receiveShadows:true });
+  terrainEnt._mat = mat;
+  app.root.addChild(terrainEnt);
+}
+function loadImagery(){
+  if(!terrainEnt) return;
+  const url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export"
+    +"?bbox="+BBOX.w+","+BBOX.s+","+BBOX.e+","+BBOX.n+"&bboxSR=4326&size=1024,512&format=jpg&f=image";
+  const img=new Image(); img.crossOrigin="anonymous";
+  img.onload=()=>{ const tex=new pc.Texture(app.graphicsDevice,{ mipmaps:true, addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE });
+    tex.setSource(img); terrainEnt._mat.diffuse=new pc.Color(1,1,1); terrainEnt._mat.diffuseMap=tex; terrainEnt._mat.update();
+    log("satellite drape applied (World Imagery)"); };
+  img.onerror=()=> log("imagery blocked (CORS) → flat terrain colour");
+  img.src=url;
+}
+
+// ---------- soil-moisture explainer ----------
+const CORE_W = 2600, CORE_D = 2600, CORE_GAP = 1400;   // world units
+const H_BASE = 6200;                                    // core height at depth-zoom 1
+let depthZoom = 1;
+let centerH = 0;         // terrain height at bbox centre (world Y)
+let surfaceY = 0;        // core bottom = soil surface
+let coreH = H_BASE;      // current core height
+let coreEnt=null, coreMat=null, coreTex=null;
+const sensorObjs = {};   // id -> { slab, slabMat, foot, footMat, sat, satMat, rz, label, satX }
+let daxDivs = [];        // depth-axis html labels
+let truescale = false;
+
+// soil-moisture profile: surface value eases to a fixed deeper value
+let surfaceWet = 0.35, surfaceWetTarget = 0.35; const DEEP_WET = 0.5, TAU = 8;
+function profileAt(cm){ return DEEP_WET + (surfaceWet-DEEP_WET)*Math.exp(-cm/TAU); }
+function reading(D){ const I = DEEP_WET*D + (surfaceWet-DEEP_WET)*TAU*(1-Math.exp(-D/TAU)); return I/D; }
+
+// depth (cm) -> fraction 0(surface)..1(100cm). Split scale: 0–5cm uses top 60%, 5–100cm the rest.
+function depthFrac(cm){ return cm<=5 ? (cm/5)*0.6 : 0.6 + ((cm-5)/95)*0.4; }
+function fracToDepth(f){ return f<=0.6 ? f/0.6*5 : 5 + (f-0.6)/0.4*95; }
+function depthY(cm){ return surfaceY + coreH*(1-depthFrac(cm)); }   // surface at top, deep at bottom
+function coreTopY(){ return surfaceY + coreH; }
+
+// footprint visual size (world metres across). nested = log-compressed; true = real metres.
+function footVisual(m){ return truescale ? m : Math.max(300, -2849 + 1911*Math.log10(m)); }
+
+function makeCoreTex(){
+  const w=64,h=256, c=document.createElement('canvas'); c.width=w; c.height=h;
+  const cx=c.getContext('2d');
+  for(let r=0;r<h;r++){
+    const cm=fracToDepth(r/(h-1)), m=profileAt(cm);          // r=0 top=surface
+    // dry tan (196,168,120) -> wet dark blue-brown (58,74,96)
+    const rr=Math.round(196+(58-196)*m), gg=Math.round(168+(74-168)*m), bb=Math.round(120+(96-120)*m);
+    cx.fillStyle="rgb("+rr+","+gg+","+bb+")"; cx.fillRect(0,r,w,1);
+  }
+  // faint horizontal striations for "soil" texture
+  cx.globalAlpha=0.10; cx.strokeStyle="#000";
+  for(let r=6;r<h;r+=11){ cx.beginPath(); cx.moveTo(0,r); cx.lineTo(w,r); cx.stroke(); }
+  cx.globalAlpha=1;
+  const tex=new pc.Texture(app.graphicsDevice,{ mipmaps:true, addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE });
+  tex.setSource(c); return tex;
+}
+function refreshCoreTex(){
+  if(!coreMat) return;
+  if(coreTex) coreTex.destroy();
+  coreTex = makeCoreTex();
+  coreMat.diffuseMap = coreTex; coreMat.emissiveMap = coreTex; coreMat.update();
+}
+
+function mat(col, opts){
+  const m=new pc.StandardMaterial();
+  m.diffuse=new pc.Color(col[0],col[1],col[2]);
+  if(opts&&opts.emissive) m.emissive=new pc.Color(col[0]*opts.emissive,col[1]*opts.emissive,col[2]*opts.emissive);
+  if(opts&&opts.opacity!=null){ m.opacity=opts.opacity; m.blendType=pc.BLEND_NORMAL; m.depthWrite=false; }
+  m.useMetalness=true; m.metalness=0; m.gloss=opts&&opts.gloss!=null?opts.gloss:0.2; m.update(); return m;
+}
+
+function buildColumn(){
+  coreH = H_BASE*depthZoom;
+  // core box (emissive-mapped so the soil reads regardless of face lighting)
+  coreMat = mat([0.5,0.44,0.34],{gloss:0.08});
+  coreTex = makeCoreTex();
+  coreMat.diffuseMap=coreTex; coreMat.emissiveMap=coreTex; coreMat.emissive=new pc.Color(0.62,0.62,0.62);
+  coreMat.update();
+  coreEnt = new pc.Entity('core');
+  coreEnt.addComponent('render',{ type:'box', castShadows:true });
+  coreEnt.render.meshInstances[0].material=coreMat;
+  coreEnt.setLocalScale(CORE_W, coreH, CORE_D);
+  coreEnt.setPosition(0, surfaceY+coreH/2, 0);
+  app.root.addChild(coreEnt);
+
+  const N=SENSORS.length;
+  SENSORS.forEach((s,i)=>{
+    const o={}; sensorObjs[s.id]=o;
+    o.satX = (i-(N-1)/2)*680;
+
+    // ---- footprint rectangle on the ground (centred, nested) ----
+    o.footMat = mat(s.col,{opacity:0.36,gloss:0.2});
+    o.footMat.emissive=new pc.Color(s.col[0]*0.35,s.col[1]*0.35,s.col[2]*0.35); o.footMat.update();
+    o.foot = new pc.Entity('foot_'+s.id);
+    o.foot.addComponent('render',{ type:'plane', castShadows:false });
+    o.foot.render.meshInstances[0].material=o.footMat;
+    app.root.addChild(o.foot);
+
+    // ---- depth slab: a coloured band protruding beyond the core faces ----
+    o.slabMat = mat(s.col,{emissive:0.5,opacity:0.9,gloss:0.3});
+    o.slab = new pc.Entity('slab_'+s.id);
+    o.slab.addComponent('render',{ type:'box', castShadows:false });
+    o.slab.render.meshInstances[0].material=o.slabMat;
+    app.root.addChild(o.slab);
+
+    // ---- SMAP root-zone ghost slab (0–100 cm) ----
+    if(s.rz){
+      o.rzMat = mat(s.col,{opacity:0.13,gloss:0.1});
+      o.rz = new pc.Entity('rz_'+s.id);
+      o.rz.addComponent('render',{ type:'box', castShadows:false });
+      o.rz.render.meshInstances[0].material=o.rzMat;
+      app.root.addChild(o.rz);
+    }
+
+    // ---- satellite marker above the core ----
+    o.satMat = mat(s.col,{emissive:0.6,gloss:0.5});
+    o.sat = new pc.Entity('sat_'+s.id);
+    o.sat.addComponent('render',{ type:'box', castShadows:false });
+    o.sat.render.meshInstances[0].material=o.satMat;
+    o.sat.setLocalScale(360,150,360);
+    app.root.addChild(o.sat);
+
+    // ---- pulse beam (hidden until measuring) ----
+    o.pulseMat = mat([1,1,1],{emissive:1.0,opacity:0.85});
+    o.pulseMat.emissive=new pc.Color(s.col[0]+0.3,s.col[1]+0.3,s.col[2]+0.3); o.pulseMat.update();
+    o.pulse = new pc.Entity('pulse_'+s.id);
+    o.pulse.addComponent('render',{ type:'box', castShadows:false });
+    o.pulse.render.meshInstances[0].material=o.pulseMat;
+    o.pulse.enabled=false;
+    app.root.addChild(o.pulse);
+
+    // ---- html label ----
+    const d=document.createElement('div'); d.className='lbl';
+    document.body.appendChild(d); o.label=d;
+  });
+
+  // depth-axis html ticks
+  ['0','2','5','20','50','100'].forEach(t=>{ const d=document.createElement('div'); d.className='dax'; d.textContent=t+' cm';
+    document.body.appendChild(d); daxDivs.push({el:d, cm:parseFloat(t)}); });
+
+  layoutColumn();
+}
+
+function layoutColumn(){
+  coreH = H_BASE*depthZoom;
+  if(coreEnt){ coreEnt.setLocalScale(CORE_W,coreH,CORE_D); coreEnt.setPosition(0,surfaceY+coreH/2,0); }
+  const groundY = centerH + 20;
+  const satY = coreTopY()+1300;
+  SENSORS.forEach((s,i)=>{
+    const o=sensorObjs[s.id];
+    // footprint
+    const fs=footVisual(s.foot);
+    o.foot.setLocalScale(fs,1,fs);
+    o.foot.setPosition(0, groundY + 8 + s.depth*2, 0);   // tiny stagger to avoid z-fight
+    // depth slab — per-sensor protrusion so equal-depth bands (SMAP/SMOS) stay distinct
+    const dy=depthY(s.depth), extra=460+i*95;
+    o.slab.setLocalScale(CORE_W+extra, 110, CORE_D+extra);
+    o.slab.setPosition(0, dy + i*4, 0);
+    // root-zone ghost
+    if(o.rz){ const yTop=depthY(0), yBot=depthY(s.rz); o.rz.setLocalScale(CORE_W+300,(yTop-yBot),CORE_D+300); o.rz.setPosition(0,(yTop+yBot)/2,0); }
+    // satellite
+    o.sat.setPosition(o.satX, satY, 0);
+  });
+  // depth ticks along the +X edge of the core
+  daxDivs.forEach(t=>{ t.wp=new pc.Vec3(CORE_W/2+900, depthY(t.cm), 0); });
+}
+
+let camReady=false;
+function buildScene(){
+  buildSky(); buildTerrain(); loadImagery();
+  centerH = sampleHeight((BBOX.w+BBOX.e)/2,(BBOX.n+BBOX.s)/2)*EXAG;
+  surfaceY = centerH + CORE_GAP;
+  buildColumn();
+  buildChips();
+  frameCamera();
+  camReady=true;
+  log("scene built · 5 sensors · drag to explore");
+}
+
+// ---------- HUD ----------
+function fmtPct(x){ return Math.round(x*100)+"%"; }
+function buildChips(){
+  const box=document.getElementById('chips'); box.innerHTML='';
+  SENSORS.forEach(s=>{
+    const c=document.createElement('div'); c.className='chip'+(s.on?'':' off'); c.dataset.id=s.id;
+    const sw='rgb('+Math.round(s.col[0]*255)+','+Math.round(s.col[1]*255)+','+Math.round(s.col[2]*255)+')';
+    c.innerHTML='<span class="sw" style="background:'+sw+'"></span>'
+      +'<span><span class="nm">'+s.n+'</span><small>'+s.band+'-band · '+s.depth+' cm · '
+      +(s.foot>=1000?(s.foot/1000)+' km':s.foot+' m')+' · ~'+s.revisit+' d</small></span>'
+      +'<span class="rd" id="rd_'+s.id+'">–</span>';
+    c.onclick=()=>{ s.on=!s.on; toggleSensor(s); c.className='chip'+(s.on?'':' off'); };
+    box.appendChild(c);
+  });
+}
+function toggleSensor(s){
+  const o=sensorObjs[s.id]; if(!o) return;
+  o.foot.enabled=s.on; o.slab.enabled=s.on; o.sat.enabled=s.on; if(o.rz)o.rz.enabled=s.on;
+  o.label.style.display=s.on?'block':'none'; if(!s.on)o.pulse.enabled=false;
+}
+
+const wet=document.getElementById('wet'), dz=document.getElementById('dz'), ts=document.getElementById('truescale');
+wet.oninput=()=>{ surfaceWetTarget=parseFloat(wet.value)/100; document.getElementById('wetv').textContent=wet.value+'%'; };
+dz.oninput=()=>{ depthZoom=parseFloat(dz.value); document.getElementById('dzv').textContent=depthZoom.toFixed(1)+'×'; layoutColumn(); };
+ts.onchange=()=>{ truescale=ts.checked; document.getElementById('scmode').textContent=truescale?'true scale':'nested (log)'; layoutColumn();
+  log(truescale?'footprints → TRUE scale (radiometers dwarf the scene)':'footprints → nested log scale'); };
+document.getElementById('measure').onclick=()=>{ SENSORS.forEach(s=>{ if(s.on) s.pulse=0; }); };
+
+// ---------- camera (reused orbit controls) ----------
+let camDist=13000, camYaw=22, camPitch=26, camTarget=new pc.Vec3(0,1200,0);
+let dragging=false, panning=false, lastX=0, lastY=0;
+function updateCam(){
+  const p=camPitch*pc.math.DEG_TO_RAD, y=camYaw*pc.math.DEG_TO_RAD;
+  const x=camDist*Math.cos(p)*Math.sin(y), yy=camDist*Math.sin(p), z=camDist*Math.cos(p)*Math.cos(y);
+  cam.setPosition(camTarget.x+x, camTarget.y+yy, camTarget.z+z); cam.lookAt(camTarget);
+}
+function frameCamera(){ camDist=WORLD_W*0.72; camYaw=22; camPitch=22;
+  camTarget=new pc.Vec3(0, surfaceY + coreH*0.52, 0); updateCam(); }
+app.mouse.on(pc.EVENT_MOUSEDOWN, e=>{ dragging=e.button===pc.MOUSEBUTTON_LEFT; panning=e.button===pc.MOUSEBUTTON_RIGHT; lastX=e.x; lastY=e.y; });
+app.mouse.on(pc.EVENT_MOUSEUP, ()=>{ dragging=false; panning=false; });
+app.mouse.on(pc.EVENT_MOUSEMOVE, e=>{
+  const dx=e.x-lastX, dy=e.y-lastY; lastX=e.x; lastY=e.y;
+  if(dragging){ camYaw-=dx*0.3; camPitch=Math.max(6,Math.min(84,camPitch+dy*0.3)); updateCam(); }
+  else if(panning){ const s=camDist*0.0012, r=cam.right, u=cam.up;
+    camTarget.x+=(-r.x*dx+u.x*dy)*s; camTarget.y+=(-r.y*dx+u.y*dy)*s; camTarget.z+=(-r.z*dx+u.z*dy)*s; updateCam(); }
+});
+app.mouse.on(pc.EVENT_MOUSEWHEEL, e=>{ camDist=Math.max(2500,Math.min(90000,camDist*(1-e.wheelDelta*0.08))); updateCam(); e.event.preventDefault(); });
+app.mouse.disableContextMenu();
+
+// ---------- update loop ----------
+const _sp=new pc.Vec3();
+function project(wp,div,anchor){
+  cam.camera.worldToScreen(wp,_sp);
+  if(_sp.z>0 && _sp.x>-80 && _sp.x<canvas.clientWidth+80 && _sp.y>-40 && _sp.y<canvas.clientHeight+40){
+    div.style.display='block'; div.style.left=_sp.x+'px'; div.style.top=_sp.y+'px'; return true;
+  } else { div.style.display='none'; return false; }
+}
+let clock=0;
+app.on('update', dt=>{
+  clock+=dt;
+  if(skyDome) skyDome.setPosition(cam.getPosition());
+  if(!camReady) return;
+
+  // ease surface moisture → refresh core texture + readings
+  if(Math.abs(surfaceWet-surfaceWetTarget)>0.001){
+    surfaceWet += (surfaceWetTarget-surfaceWet)*Math.min(1,dt*4);
+    refreshCoreTex();
+  }
+
+  const satBob=Math.sin(clock*1.3)*60;
+  SENSORS.forEach(s=>{
+    const o=sensorObjs[s.id]; if(!o||!s.on) return;
+    o.sat.setPosition(o.satX, coreTopY()+1300+satBob, 0);
+
+    // reading(s)
+    const rSurf=reading(s.depth);
+    const chip=document.getElementById('rd_'+s.id); if(chip) chip.textContent=fmtPct(rSurf);
+
+    // measurement pulse
+    let pulseTxt='';
+    if(s.pulse>=0){
+      s.pulse+=dt/0.65;
+      const yTop=coreTopY()+1200, yBot=depthY(s.depth);
+      const seg=(yTop-yBot);
+      const headY=yTop - Math.min(s.pulse,1)*seg;
+      const len=seg*0.22;
+      o.pulse.enabled=true;
+      o.pulse.setLocalScale(140, len, 140);
+      o.pulse.setPosition(o.satX, headY-len/2, 0);
+      // slab flash as pulse lands
+      const flash = s.pulse>0.85 ? (1.4-Math.min(s.pulse,1.2)*0.9) : 1;
+      o.slabMat.emissive=new pc.Color(s.col[0]*0.5*flash+0.2*(flash-1)*0, s.col[1]*0.5, s.col[2]*0.5); o.slabMat.update();
+      if(s.pulse>=1.25){ s.pulse=-1; o.pulse.enabled=false; o.slabMat.emissive=new pc.Color(s.col[0]*0.5,s.col[1]*0.5,s.col[2]*0.5); o.slabMat.update(); }
+    }
+
+    // label anchored to the band's depth on the left edge (decluttered below)
+    const lab=o.label, idx=SENSORS.indexOf(s);
+    const footTxt = s.foot>=1000 ? (s.foot/1000)+' km' : s.foot+' m';
+    let rd = '<span class="r">'+fmtPct(rSurf)+'</span> v/v';
+    if(s.rz) rd += ' · RZ <span class="r">'+fmtPct(reading(s.rz))+'</span>';
+    lab.innerHTML = s.n + '<small>'+s.band+'-band · '+s.depth+' cm · '+footTxt+' · ~'+s.revisit+' d · '+rd+'</small>';
+    cam.camera.worldToScreen(new pc.Vec3(-(CORE_W/2+560), depthY(s.depth)+idx*4, 0), _sp);
+    o.labVis = _sp.z>0 && _sp.x>-120 && _sp.x<canvas.clientWidth+120 && _sp.y>-40 && _sp.y<canvas.clientHeight+40;
+    o.labX=_sp.x; o.labY=_sp.y;
+  });
+
+  // vertical declutter: labels share a left column → push apart so none overlap
+  const vis=SENSORS.filter(s=>s.on && sensorObjs[s.id].labVis).map(s=>sensorObjs[s.id]);
+  vis.sort((a,b)=>a.labY-b.labY);
+  const MINDY=30;
+  for(let k=0;k<vis.length;k++){ if(k>0 && vis[k].labY < vis[k-1].labY+MINDY) vis[k].labY = vis[k-1].labY+MINDY; }
+  SENSORS.forEach(s=>{ const o=sensorObjs[s.id]; const d=o.label;
+    if(s.on && o.labVis){ d.style.display='block'; d.style.left=o.labX+'px'; d.style.top=o.labY+'px'; }
+    else d.style.display='none'; });
+
+  // depth-axis ticks
+  daxDivs.forEach(t=>{ if(t.wp) project(t.wp,t.el,'dax'); });
+});
+
+log("loading terrain + imagery from ArcGIS…");
+loadDEM();
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>
