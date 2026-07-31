@@ -17,7 +17,7 @@ step, no dependencies). Open `index.html` to start.
 | 01 | `soil-moisture.html` | What the five microwave products actually sense (3D) |
 | 02 | `soil-moisture-ayutthaya.html` | The same stack over Ayutthaya, Thailand (3D) |
 | 03 | `soil-moisture-annotated.html` | The retrieval chain, annotated for where error enters (3D) |
-| 04 | `soil-moisture-capture-journey.html` | The signal's journey, step by step |
+| 04 | `soil-moisture-capture-journey.html` | The signal's journey in 3D — equations, worked SMAP numbers, and a live error budget per step |
 | 05 | `soil-moisture-orbit-swath.html` | Orbit & swath capture geometry |
 | 06 | `soil-moisture-provenance.html` | The provenance DAG from photon to pixel |
 | 07 | `soil-moisture-uncertainty-waterfall.html` | A quantitative uncertainty waterfall |
