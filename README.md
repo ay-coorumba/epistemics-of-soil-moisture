@@ -25,6 +25,7 @@ step, no dependencies). Open `index.html` to start.
 | 08 | `soil-moisture-correction-sandbox.html` | Turn off a correction and watch the value degrade |
 | 09 | `soil-moisture-ground-truth.html` | In-situ probes vs. the pixel — what "validated" means |
 | 10 | `soil-moisture-national-methods.html` | Four flags, four pipelines (US/EU/China/Russia, dual-language) |
+| 08b | `soil-moisture-glow-behind-glass.html` | The Glow Behind Glass — the Chinese (FY-3) and Russian (Meteor-M) journeys, split-screen 3D, bilingual |
 | 11 | `soil-moisture-evidence-constellation.html` | ~29 peer-reviewed papers, grounded via Consensus |
 | 12 | `soil-moisture-rfi-politics.html` | RFI as spectrum politics — a world map |
 

@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Glow Behind Glass — the Chinese and Russian soil-moisture journeys</title>
+<script src="https://code.playcanvas.com/playcanvas-stable.min.js" onerror="window.__noPC=true"></script>
+<style>
+  :root{
+    --measured:#46c78a; --contam:#ef6a5a; --avg:#39d0c8; --infer:#f2b24a; --box:#e368b8;
+    --cn:#e69f00; --ru:#cc79a7;
+    --bg:#0a1420; --panel:rgba(12,22,34,.86); --ink:#eaf2f7; --dim:#9fb4c4;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,"Noto Sans","Noto Sans SC",sans-serif;line-height:1.5}
+  a{color:#6fd0ff}
+  #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--cn),var(--ru));width:0;z-index:50}
+  .hero{max-width:820px;margin:0 auto;padding:16vh 24px 8vh}
+  .hero h1{font-size:clamp(28px,5vw,46px);line-height:1.1;margin:0 0 16px;font-weight:700;letter-spacing:-.5px}
+  .hero .lede{font-size:clamp(16px,2.4vw,20px);color:var(--dim);max-width:660px}
+  .kick{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 14px}
+  .scrollcue{margin-top:40px;font-size:13px;color:var(--dim)}
+  .scrollcue span{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+  #scrolly{position:relative;max-width:1280px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:24px}
+  #graphic{position:sticky;top:0;height:100vh;display:flex;align-items:center;justify-content:center}
+  #stage3d{position:relative;width:100%;height:88vh;max-height:960px;border-radius:14px;overflow:hidden;background:#070b12;border:1px solid rgba(255,255,255,.08)}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .lab3d{position:absolute;transform:translate(-4px,-50%);font:600 12px -apple-system,Segoe UI,Roboto,"Noto Sans","Noto Sans SC",sans-serif;color:#fff;
+    background:rgba(6,13,22,.88);border:1.5px solid #fff;border-radius:7px;padding:4px 9px;white-space:nowrap;
+    box-shadow:0 4px 16px rgba(0,0,0,.5);transition:opacity .35s}
+  .lab3d .l2{display:block;font-weight:400;font-size:10px;color:#b6c6d4;margin-top:1px}
+  .lab3d::before{content:"";position:absolute;left:-5px;top:50%;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:inherit;border:inherit}
+  #divider{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.5),transparent);opacity:0;transition:opacity .4s;pointer-events:none}
+  .tbanner{position:absolute;bottom:86px;transform:translateX(-50%);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+    padding:4px 12px;border-radius:20px;background:rgba(6,13,22,.85);opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+  #banA{color:var(--cn);border:1px solid var(--cn)}
+  #banB{color:var(--ru);border:1px solid var(--ru)}
+  #hud{position:absolute;left:14px;top:14px;pointer-events:none;display:flex;flex-direction:column;gap:8px;max-width:280px}
+  .hudbox{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:9px 12px;backdrop-filter:blur(6px)}
+  .hudbox .lab{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:10px;margin-bottom:5px}
+  .hudbox .lab b{color:var(--ink)}
+  .track{height:10px;border-radius:6px;background:#22303d;overflow:hidden;display:flex;position:relative}
+  .track .m{background:var(--measured);height:100%}
+  .track .mB{background:var(--ru);height:100%}
+  .track .r{background:repeating-linear-gradient(45deg,#3a4a59,#3a4a59 4px,#455767 4px,#455767 8px);height:100%;flex:1}
+  .track .e{background:linear-gradient(90deg,#e0724a,#ef6a5a);height:100%}
+  .track .req{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85}
+  .hudbox .cap{font-size:10px;color:var(--dim);margin-top:4px}
+  .mrow{margin-top:7px}
+  .mrow:first-child{margin-top:0}
+  .mrow .lab i{font-style:normal;font-weight:800;letter-spacing:.6px}
+  #ebB_box,#purB_row{display:none}
+  .forked #ebB_box,.forked #purB_row{display:block}
+  #legend{position:absolute;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:6px;max-width:55%}
+  .lc{font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(6,13,22,.8);display:flex;align-items:center;gap:5px}
+  .lc i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  #stageno{position:absolute;right:14px;bottom:14px;font-size:11px;color:var(--dim);background:rgba(6,13,22,.8);padding:4px 9px;border-radius:6px}
+  #working{position:absolute;right:14px;top:14px;width:min(410px,47%);max-height:calc(100% - 58px);display:flex;flex-direction:column;
+    background:rgba(8,16,26,.93);border:1px solid rgba(255,255,255,.14);border-radius:12px;backdrop-filter:blur(8px);
+    box-shadow:0 14px 40px rgba(0,0,0,.55);z-index:5}
+  #working.closed .wbody{display:none}
+  #working .whead{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}
+  #working .whead .sig{font-family:Georgia,serif;font-style:italic;font-weight:700;color:#ffd27a;font-size:15px}
+  #working .whead .wt{font-size:12px;font-weight:700;letter-spacing:.4px;flex:1}
+  #working .whead .chev{color:var(--dim);font-size:11px;transition:transform .25s}
+  #working.closed .whead .chev{transform:rotate(-90deg)}
+  #working .wbody{padding:2px 14px 13px;overflow-y:auto;font-size:12.5px;scrollbar-width:thin}
+  .m-sec{margin:9px 0 0}
+  .m-sec .mh{font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;font-weight:800;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+  .m-sec .mh::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
+  .mh.h-eq{color:#8fd0ff}.mh.h-work{color:#46c78a}.mh.h-err{color:#ef8a7a}
+  .mh.h-cn{color:var(--cn)}.mh.h-ru{color:var(--ru)}
+  .m-eq{font-family:Georgia,'Times New Roman',serif;font-size:14px;color:#eaf2f7;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:8px 11px;overflow-x:auto;white-space:nowrap;line-height:1.9;scrollbar-width:thin}
+  .m-eq i{font-style:italic}
+  .m-eq .small{font-size:11px;color:var(--dim);font-family:-apple-system,Segoe UI,Roboto,sans-serif;white-space:normal}
+  .fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 3px;line-height:1.25}
+  .fr>span:first-child{border-bottom:1px solid #cdd9e4;padding:0 4px}
+  .fr>span:last-child{padding:0 4px}
+  .sq{white-space:nowrap}
+  .sq .ov{border-top:1px solid #cdd9e4;padding:0 2px}
+  .m-work{color:#cfe0ec}
+  .m-work b{color:#fff}
+  .m-err{color:#e8c9c3}
+  .m-err b{color:#ffb3a6}
+  .sigchip{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;color:#ffb3a6;background:rgba(239,106,90,.14);
+    border:1px solid rgba(239,106,90,.4);border-radius:6px;padding:2px 8px}
+  .sigchip.na{color:#d8b8cb;background:rgba(204,121,167,.13);border-color:rgba(204,121,167,.4)}
+  .wsplit{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .wsplit .col{min-width:0}
+  .wsplit .m-eq{font-size:12.5px;padding:7px 9px}
+  .cmp{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+  .cmp th,.cmp td{border:1px solid rgba(255,255,255,.12);padding:5px 7px;text-align:left;vertical-align:top}
+  .cmp th{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
+  .cmp td b{color:#fff}
+  #steps{padding:40vh 0}
+  .step{min-height:84vh;display:flex;flex-direction:column;justify-content:center;opacity:.35;transition:opacity .3s}
+  .step.on{opacity:1}
+  .step .card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-left-width:4px;border-radius:12px;padding:18px 20px}
+  .step .tag{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:10px}
+  .step h3{margin:0 0 8px;font-size:20px}
+  .step .n{color:var(--dim);font-weight:600;margin-right:6px}
+  .step p{margin:0 0 10px;font-size:15px;color:#dbe6ef}
+  .step .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+  .step .duo .d{border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:9px 11px;font-size:13px;color:#dbe6ef}
+  .step .duo .d .dh{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+  .step .duo .dC{border-left:3px solid var(--cn)} .step .duo .dC .dh{color:var(--cn)}
+  .step .duo .dR{border-left:3px solid var(--ru)} .step .duo .dR .dh{color:var(--ru)}
+  .step .enters{font-size:12.5px;color:var(--dim);border-top:1px dashed rgba(255,255,255,.14);padding-top:9px}
+  .step .enters b{color:var(--ink)}
+  .step .sline{margin-top:8px;font-size:11px;color:#ffb3a6}
+  .cat-measured{border-left-color:var(--measured)} .cat-measured .tag{background:rgba(70,199,138,.18);color:var(--measured)}
+  .cat-contam{border-left-color:var(--contam)} .cat-contam .tag{background:rgba(239,106,90,.18);color:var(--contam)}
+  .cat-avg{border-left-color:var(--avg)} .cat-avg .tag{background:rgba(57,208,200,.18);color:var(--avg)}
+  .cat-infer{border-left-color:var(--infer)} .cat-infer .tag{background:rgba(242,178,74,.18);color:var(--infer)}
+  .cat-box{border-left-color:var(--box)} .cat-box .tag{background:rgba(227,104,184,.18);color:var(--box)}
+  .cat-fork{border-left-color:var(--cn)} .cat-fork .tag{background:rgba(230,159,0,.16);color:var(--cn)}
+  .outro{max-width:760px;margin:0 auto;padding:10vh 24px 20vh}
+  .outro h2{font-size:clamp(22px,3.5vw,32px);margin:0 0 14px}
+  .outro p{color:#dbe6ef;font-size:16px}
+  .note{font-size:12.5px;color:var(--dim);font-style:italic;border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px}
+  #fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:30px;
+    background:linear-gradient(180deg,#05070f 0%,#0a1526 30%,#12263b 60%,#2a2418 100%);color:var(--dim);font-size:14px}
+  @media(max-width:900px){
+    #scrolly{grid-template-columns:1fr}
+    #graphic{height:58vh;top:42vh}
+    #stage3d{height:54vh}
+    #steps{padding:8vh 0}
+    .step{min-height:72vh}
+    #legend{display:none}
+    #working{width:min(360px,86%)}
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<section class="hero">
+  <p class="kick">Kaswari AgTech · The Glow Behind Glass · companion to <a href="soil-moisture-capture-journey.html">The Signal’s</a> &amp; <a href="soil-moisture-echo-journey.html">The Echo’s</a> journeys</p>
+  <h1>The same glow, heard at the wrong frequency — and read behind glass.</h1>
+  <p class="lede">China and Russia listen to the same thermal glow SMAP does — but at X-band, where the soil speaks from only its top centimetre, the canopy is a wall, and no law protects the silence. Then the two journeys fork institutionally, in opposite directions: <b style="color:var(--cn)">风云三号 FengYun-3</b> compensates with constellation scale and machine-learned retrievals; <b style="color:var(--ru)">Метеор-М Meteor-M</b> treats soil moisture as a by-product — from the nation that <i>invented</i> spaceborne microwave radiometry, and whose dielectric physics quietly sits inside everyone else’s pipeline.</p>
+  <p class="scrollcue"><span>↓</span> scroll to begin · X-band, 10.65 GHz · maths panel top-right</p>
+</section>
+
+<div id="scrolly">
+  <div id="graphic">
+    <div id="stage3d">
+      <canvas id="cv"></canvas>
+      <div id="labels"></div>
+      <div id="divider"></div>
+      <div class="tbanner" id="banA">风云三号 · FY-3 MWRI</div>
+      <div class="tbanner" id="banB">Метеор-М · МТВЗА-ГЯ</div>
+      <div id="fallback"><div>The 3D scene needs the PlayCanvas engine from its CDN and couldn't load it here.<br>
+        The full story and every step's mathematical working still work — scroll on.</div></div>
+      <div id="hud">
+        <div class="hudbox">
+          <div class="mrow"><div class="lab"><span id="purAlab">Glow is still…</span><b id="purv">90% measurement</b></div>
+          <div class="track"><div class="m" id="mfill" style="width:90%"></div><div class="r"></div></div></div>
+          <div class="mrow" id="purB_row"><div class="lab"><span><i style="color:var(--ru)">МТВЗА</i></span><b id="purvB">—</b></div>
+          <div class="track"><div class="mB" id="mfillB" style="width:0%"></div><div class="r"></div></div></div>
+          <div class="cap" id="mcap">the same physics as SMAP — pitched seven octaves too high.</div>
+        </div>
+        <div class="hudbox" id="eb_box">
+          <div class="mrow"><div class="lab"><span id="ebAlab">Error budget</span><b id="ebv">σ ≈ 0.000</b></div>
+          <div class="track"><div class="e" id="efill" style="width:0%"></div><div class="r"></div><div class="req" style="left:51%"></div></div></div>
+          <div class="mrow" id="ebB_box"><div class="lab"><span><i style="color:var(--ru)">МТВЗА</i></span><b id="ebvB">no public budget</b></div>
+          <div class="track"><div class="r"></div></div></div>
+          <div class="cap" id="ebcap">FY-3 in m³/m³ · white line = SMAP’s 0.041 · МТВЗА publishes none — which is itself the finding</div>
+        </div>
+      </div>
+      <div id="working" class="closed">
+        <div class="whead" onclick="document.getElementById('working').classList.toggle('closed')">
+          <span class="sig">Σ</span><span class="wt" id="wtitle">The working</span><span class="chev">▼</span>
+        </div>
+        <div class="wbody" id="wbody"></div>
+      </div>
+      <div id="legend">
+        <span class="lc"><i style="background:var(--measured)"></i>measured</span>
+        <span class="lc"><i style="background:var(--contam)"></i>contamination</span>
+        <span class="lc"><i style="background:var(--avg)"></i>averaging</span>
+        <span class="lc"><i style="background:var(--infer)"></i>inference / calibration</span>
+        <span class="lc"><i style="background:var(--box)"></i>black box</span>
+      </div>
+      <div id="stageno">—</div>
+    </div>
+  </div>
+  <div id="steps"></div>
+</div>
+
+<section class="outro">
+  <h2>The pedigree includes the auditor</h2>
+  <p>The physics on this page is the same physics as the rest of the collection — Fresnel emissivity, τ–ω, dielectric mixing. What differs is everything wrapped around it: the frequency a nation could afford to fly, the retrieval it chose to trust, and — decisively — <b>who is allowed to check</b>. A number nobody outside the building can audit is not a worse number; it is a <i>different kind</i> of number, and the ~90%-Western global record is the sum of exactly such differences.</p>
+  <p>And one quiet inversion to hold onto: while Russian satellite data rarely leaves home, Russian <i>science</i> is everywhere — the Mironov dielectric model inside SMAP’s own retrieval chain is the direct descendant of the programme that put the first microwave radiometer in orbit in 1968. Data has borders. Physics doesn’t.</p>
+  <p class="note">Worked for FengYun-3 MWRI (X-band, 10.65 GHz, CMA/CNSA/CAS) and Meteor-M MTVZA-GYa (Roscosmos/Roshydromet). Physics is standard (skin depth, vegetation opacity scaling, multi-frequency indices); FY-3 retrieval and recalibration details follow the published literature (random-forest retrievals, FY-3B/C/D record harmonisation), and MTVZA soil-moisture use follows the published Arctic experiments. Institutional characterisations are the collection’s own editorial reading — see <a href="soil-moisture-national-methods.html">Four Flags, Four Pipelines</a> for the sourced comparison. Worked numbers and per-step σ values are illustrative magnitudes.</p>
+</section>
+
+<script>
+function fr(a,b){return '<span class="fr"><span>'+a+'</span><span>'+b+'</span></span>';}
+function sq(x){return '<span class="sq">√<span class="ov">'+x+'</span></span>';}
+
+const STAGES=[
+{ id:'depth', track:'shared', cat:'measured', tag:'measured · the wrong octave', title:'The soil speaks from its skin', purC:90, purR:90, sC:0.015, sR:1,
+  body:'Same glow, same T_B = e·T — but at 10.65 GHz the wavelength is 2.8 cm, not 21. Emission escapes only from a depth of roughly a tenth of a wavelength: SMAP hears the top ~5 cm of soil; an X-band imager hears the top centimetre. A morning dew, a crust, a shower an hour ago — all can impersonate the ground.',
+  enters:'The instrument answers a <b>different question</b>: not “how wet is the soil?” but “how wet is its skin?”',
+  eq:'δ<sub>sense</sub> ≈ '+fr('λ','2π')+' · '+fr(sq('ε′'),'ε″')+' &nbsp;<span class="small">≈ λ/10 in moist soil — sensing depth scales with wavelength</span>',
+  work:'L-band (λ = 21 cm): δ ≈ <b>5 cm</b>. X-band (λ = 2.8 cm): δ ≈ <b>0.5–1 cm</b>. The two “soil moistures” correlate — but decouple exactly when it matters: after rain, under irrigation, during drydown.',
+  err:'Skin moisture swings faster and wider than the 0–5 cm layer. Comparing an X-band product against a 5-cm probe builds in a mismatch before any algorithm runs — a representativeness error by design, not by accident.' },
+
+{ id:'canopywall', track:'shared', cat:'contam', tag:'contamination · a wall, not a veil', title:'The canopy is opaque up here', purC:74, purR:74, sC:0.035, sR:1,
+  body:'Vegetation optical depth grows roughly with frequency. The canopy SMAP treats as a translucent veil (τ ≈ 0.12 over crops) is, at X-band, closer to a wall — over forest and mature crops the satellite is measuring the canopy, with the soil as a rumour underneath.',
+  enters:'Beyond modest biomass the retrieval is <b>vegetation first, soil second</b> — inverted priorities.',
+  eq:'τ(f) ≈ <i>b</i>(f)·VWC &nbsp;,&nbsp; <i>b</i><sub>X</sub> ≈ 4–7 × <i>b</i><sub>L</sub> &nbsp;→&nbsp; γ² = e<sup>−2τ sec θ</sup> collapses',
+  work:'The same paddock that gave SMAP γ² ≈ 0.8: at X-band τ ≈ 0.6–0.8 → γ² ≈ <b>0.15–0.3</b>. Most of the soil’s glow never reaches orbit; what does is swamped by the canopy’s own emission.',
+  err:'The vegetation correction is no longer a correction — it is most of the signal. Small errors in VWC or b produce large moisture errors, and over dense cover the retrieval is simply flagged impossible.' },
+
+{ id:'nofence', track:'shared', cat:'box', tag:'black box · unprotected spectrum', title:'No fence around this part of the sky', purC:62, purR:62, sC:0.012, sR:1,
+  body:'SMAP’s 1400–1427 MHz is a legally protected quiet zone. There is no such fence at C- and X-band — these frequencies are shared with radars, radio links and broadcasting by design. Interference isn’t an intruder here; it’s a neighbour. Filtering it is a permanent, silent line item.',
+  enters:'What survives filtering depends on <b>thresholds you never see</b> — with far more to filter than at L-band.',
+  eq:'no ITU quiet band ⇒ RFI is <i>licensed</i> &nbsp;;&nbsp; detection: |κ−3| &gt; t , spectral-difference tests, geographic masks',
+  work:'The precedent is famous: AMSR-E’s C-band was so contaminated over the US, Japan and the Middle East that soil products there fell back to X-band entirely. Every C/X-band mission inherits maps of no-go regions.',
+  err:'Sub-threshold interference biases T<sub>B</sub> warm → soil reads dry, exactly as at L-band but denser. And the masks are drawn per-agency, unpublished — the same deletion politics as the RFI piece, without the treaty.' },
+
+{ id:'manyfreqs', track:'shared', cat:'infer', tag:'inference · compensation', title:'Many frequencies, one unknown too many', purC:55, purR:55, sC:0.010, sR:1,
+  body:'What these imagers lack in wavelength they partly recover in breadth: five to ten channels from 10 to 89 GHz. Higher channels pin down the atmosphere and temperature; polarisation ratios track vegetation; the lowest channel is left to carry the soil. It is a clever bookkeeping — with more unknowns than equations, always.',
+  enters:'Compensation by <b>simultaneous inversion</b> — every channel’s error leaks into the soil channel’s answer.',
+  eq:'MPDI = '+fr('T<sub>B,V</sub> − T<sub>B,H</sub>','T<sub>B,V</sub> + T<sub>B,H</sub>')+' &nbsp;<span class="small">— the polarisation index that carries vegetation; T<sub>eff</sub> from the 36.5/89 GHz pair</span>',
+  work:'Where SMAP borrows T<sub>eff</sub> from a weather model, a multi-frequency imager can <b>estimate it from its own high channels</b> — a real epistemic advantage. The cost: those channels see the atmosphere too, so cloud and water vapour errors propagate downward into “soil”.',
+  err:'The inversion is only as good as its weakest channel. A calibration drift at 36.5 GHz becomes a phantom temperature trend, which becomes a phantom moisture trend — errors travel between frequencies wearing each other’s clothes.' },
+
+{ id:'whosemeter', track:'shared', cat:'infer', tag:'inference · calibration', title:'Calibrated against whose ruler?', purC:48, purR:48, sC:0.010, sR:1,
+  body:'Every radiometer needs its counts tied to kelvin. But there is a second, quieter calibration: tying your instrument to everyone else’s. FY-3’s record is repeatedly re-harmonised — partly against Western missions; MTVZA’s absolute calibration has been an open research topic in its own literature. Here the shared physics ends and the institutions take over. The screen splits.',
+  enters:'A national record is only comparable to the world’s through <b>cross-calibration against the very missions it rivals</b>.',
+  eq:'T<sub>B</sub><sup>FY</sup> → a + b·T<sub>B</sub><sup>ref</sup> &nbsp;<span class="small">— inter-satellite harmonisation against reference radiometers (AMSR2, SMOS-era records)</span>',
+  work:'The published FY-3B/C/D soil-moisture records were made <b>consistent as a family</b> by recalibrating brightness temperatures and retrained retrievals — a decade of stitching so the archive doesn’t jump at each satellite handover.',
+  err:'Harmonise against a reference and you inherit its biases; don’t, and your record is an island. There is no third option — every national archive chooses its dependency.' },
+
+{ id:'instrument', track:'fork', cat:'fork', tag:'the fork · the instrument', title:'A constellation, or a sounder moonlighting', purC:40, purR:38, sC:0.008, sR:1,
+  body:'The same X-band physics now boards two very different machines. China flies a family of dedicated imagers, replaced on schedule like fleet vehicles. Russia flies one instrument built to sound the atmosphere, for which the ground is mostly the thing in the way.',
+  a:{h:'MWRI — a production line',
+     eq:'conical scan, 10 ch · 10.65–89 GHz · swath ~1400 km &nbsp;<span class="small">· X-band footprint ~51×85 km</span>',
+     work:'FY-3B → C → D → E → F → G: near-continuous MWRI coverage since 2010, two overpasses a day, each satellite cross-checked against the last. The philosophy of the Four Flags page made hardware: <b>expand fast, iterate, replace</b>.',
+     err:'Multipurpose imagers serve many masters — channel choices, overpass times and calibration priorities are set by weather forecasting, with soil moisture riding along.'},
+  s:{h:'МТВЗА-ГЯ — the atmosphere’s instrument',
+     eq:'imager/sounder to 183 GHz · lowest channel 10.6 GHz &nbsp;<span class="small">· один прибор, много задач — one instrument, many jobs</span>',
+     work:'MTVZA-GYa’s design centre of gravity is temperature and humidity <b>sounding</b> — the channels that touch soil are the bottom of a long ladder. Published soil work is real but experimental: first retrievals over Arctic tundra, not an operational global product.',
+     err:'When soil moisture is nobody’s day job, its error budget is nobody’s deliverable. The quantity exists in the data — as potential, not product.'},
+  enters:'Two answers to the same constraint: <b>industrialise the compromise, or let the compromise stand.</b>' },
+
+{ id:'retrievalfork', track:'fork', cat:'box', tag:'the fork · the retrieval', title:'Learned from others, or derived at home', purC:30, purR:26, sC:0.035, sR:1,
+  body:'At the retrieval the divergence turns philosophical. China’s flagship products increasingly learn the answer: machine-learning models trained on reference datasets — including Western missions’ products. Russia’s tradition derives the answer: dielectric physics, from the school that wrote the world’s standard model of wet soil.',
+  a:{h:'随机森林 — the learned retrieval',
+     eq:'θ̂<sub>v</sub> = RF(T<sub>B,10.65</sub><sup>V,H</sup>, T<sub>B,18.7</sub>, …) &nbsp;<span class="small">— random forest / NN, trained on reference soil-moisture fields</span>',
+     work:'Published FY-3 retrievals train on ERA5, in-situ networks and established satellite products, then predict independently. It works — validation statistics are competitive — and it iterates as fast as retraining.',
+     err:'Train on another mission’s product and you inherit its worldview: its biases become your labels. The retrieval can never be more right than its teacher where the teacher is wrong — <b>an epistemic loop wearing the costume of independence</b>.'},
+  s:{h:'Миронов — the derived retrieval',
+     eq:'ε(θ<sub>v</sub>, clay) — GRMDM &nbsp;<span class="small">— Mironov’s generalised refractive mixing dielectric model</span>',
+     work:'The Russian school (Shutko’s airborne radiometry, Mironov’s spectroscopy) built soil-moisture physics from first principles for decades. The irony of the collection: <b>SMAP’s own chain uses Mironov’s model</b> — Russian physics inside the American black box.',
+     err:'Physics-first retrievals are auditable but slow to operationalise; without a funded product line they stay in journals. The method is world-class; the pipeline was never built.'},
+  enters:'One track risks <b>circularity</b>, the other <b>incompletion</b> — mirror-image failure modes.' },
+
+{ id:'audit', track:'fork', cat:'box', tag:'the fork · the audit', title:'Who may check the number?', purC:24, purR:20, sC:0.012, sR:1,
+  body:'Every journey so far ended with validation — someone comparing the product to the ground. Here the fork is about who is allowed to do that. This is the “glass” of the title: both records exist; what differs is the direction you can look through.',
+  a:{h:'数据门户 — mixed openness',
+     eq:'<span class="small">registration portals · some products open · validation published over Chinese networks · growing in-situ investment</span>',
+     work:'FY data flows through official portals — much genuinely accessible, some gated. Independent validations exist in the international literature; the record is <b>partially auditable</b> and becoming more so.',
+     err:'Partial openness cuts both ways: outside scientists can test the product, but not always the algorithm or its training labels — you can audit the answer without ever seeing the question.'},
+  s:{h:'Наземная сеть — the deep archive at home',
+     eq:'<span class="small">одна из старейших наземных сетей мира — one of the world’s oldest in-situ networks · satellite data largely domestic</span>',
+     work:'Russia’s gravimetric soil-moisture observations reach back generations — ground truth of a depth most nations envy. Satellite streams are appearing on international feeds, but soil products remain essentially internal.',
+     err:'The keenest loss is mutual: the global record can’t use what it can’t see, and the deepest in-situ archive on Earth audits almost none of the satellites flying over it.'},
+  enters:'An unauditable number isn’t wrong — it is <b>epistemically different</b>: trust must substitute for verification.' },
+
+{ id:'productfork', track:'fork', cat:'avg', tag:'the fork · the product', title:'A dataset, or a dataset-shaped absence', purC:20, purR:14, sC:0.010, sR:1,
+  body:'End of the line: what actually lands in a file you can open. For FengYun — a real, published, global product family. For Meteor-M — assimilation into domestic weather models, and a gap where a product would be.',
+  a:{h:'A published global record',
+     eq:'25 km · daily · 2010– &nbsp;<span class="small">— global MWRI soil-moisture datasets in the open literature; drought ops at CMA; WCOM (L/S/C) planned as the purpose-built leap</span>',
+     work:'A decade-plus harmonised archive, published internationally with validation statistics — China’s record is now <b>long enough to matter for climate</b>, and WCOM would jump it to L-band physics with modern hardware.',
+     err:'X-band ceilings stay: skin-depth mismatch, canopy walls, RFI masks. The archive is honest about being a different quantity — its users are not always.'},
+  s:{h:'Ассимиляция — absorbed, not published',
+     eq:'x<sub>a</sub> = x<sub>f</sub> + K(y − Hx<sub>f</sub>) &nbsp;<span class="small">— МТВЗА radiances feed Hydrometcentre assimilation; no public soil-moisture product</span>',
+     work:'The observations do work — inside NWP, where radiances nudge the model state. But no gridded soil-moisture file leaves the system for the world to use or examine.',
+     err:'A measurement that exists only inside a model inherits the model’s privacy. For the global record it is indistinguishable from a measurement never made.'},
+  enters:'The final products differ not in accuracy but in <b>existence</b> — one is a file, the other a rumour of one.' },
+
+{ id:'ledger', track:'coda', cat:'box', tag:'coda · the ledger', title:'Four journeys, one ledger', purC:20, purR:14, sC:null, sR:null,
+  body:'Set the four journeys side by side — the glow, the echo, and the two behind glass — and the global record’s shape stops looking natural and starts looking chosen: chosen by frequency allocations, retrieval philosophies, and openness policies, mission by mission.',
+  enters:'“Global soil moisture” is a <b>ledger of national decisions</b> wearing the uniform of a physical field.',
+  cmp:true },
+
+{ id:'cosmopolitan', track:'coda', cat:'measured', tag:'coda · physics without borders', title:'The quiet Russian inside every pipeline', purC:20, purR:14, sC:null, sR:null,
+  body:'Cosmos-243, 1968: the first microwave radiometer ever flown — Soviet. Half a century later, Mironov’s dielectric model converts permittivity to water inside SMAP’s retrieval, Dobson’s inside others. Data stops at borders; physics never has. The global record is Western-weighted — its foundations are not.',
+  enters:'Openness decides <b>whose data</b> becomes the record; it has never decided <b>whose science</b>.',
+  eq:'ε(θ<sub>v</sub>, clay) — Mironov GRMDM &nbsp;<span class="small">— the same curve, in Beijing, Moscow, Pasadena and Frascati</span>',
+  work:'Follow the collection full circle: the dielectric step of <a href="soil-moisture-capture-journey.html" style="color:#6fd0ff">The Signal’s Journey</a> — the lab-fitted curve nobody re-derives — is this school’s work. The most closed programme in the story authored the most universal step in everyone’s pipeline.',
+  err:'The risk of a Western-weighted record isn’t bias in any one number — it is <b>monoculture</b>: shared assumptions failing in the same direction, unaudited by the traditions best placed to catch them.' },
+];
+
+const CUMC=[]; let c2=0;
+STAGES.forEach(st=>{ if(st.sC)c2+=st.sC*st.sC; CUMC.push(Math.sqrt(c2)); });
+
+// ═══ step cards ═══
+const stepsEl=document.getElementById('steps');
+STAGES.forEach((s,i)=>{
+  const d=document.createElement('div');
+  d.className='step cat-'+s.cat; d.dataset.i=i;
+  let mid='';
+  if(s.track==='fork'){
+    mid='<div class="duo"><div class="d dC"><div class="dh">FengYun-3 · 风云</div>'+s.a.h+'</div><div class="d dR"><div class="dh">Meteor-M · Метеор</div>'+s.s.h+'</div></div>';
+  }
+  const sline = s.sC?'<div class="sline">σ (FY-3): ≈ '+s.sC.toFixed(3)+' m³/m³ · running √Σσ² ≈ '+CUMC[i].toFixed(3)+' · МТВЗА: no public budget</div>':'';
+  d.innerHTML='<div class="card"><span class="tag">'+s.tag+'</span>'
+    +'<h3><span class="n">'+String(i+1).padStart(2,'0')+'</span>'+s.title+'</h3>'
+    +'<p>'+s.body+'</p>'+mid+'<div class="enters">'+s.enters+sline+'</div></div>';
+  stepsEl.appendChild(d);
+});
+
+let active=0, activeTarget=0, shownStage=-1;
+const steps=[...document.querySelectorAll('.step')];
+const io=new IntersectionObserver((ents)=>{
+  ents.forEach(e=>{ if(e.isIntersecting){ const i=+e.target.dataset.i; steps.forEach(s=>s.classList.toggle('on',+s.dataset.i===i)); activeTarget=i; } });
+},{rootMargin:'-45% 0px -45% 0px',threshold:0});
+steps.forEach(s=>io.observe(s));
+addEventListener('scroll',()=>{ const h=document.documentElement; const p=h.scrollTop/(h.scrollHeight-h.clientHeight); document.getElementById('bar').style.width=(p*100)+'%'; },{passive:true});
+
+// ═══ working panel ═══
+const CMP_TABLE='<table class="cmp"><tr><th></th><th style="color:#46c78a">SMAP / ASCAT</th><th style="color:var(--cn)">FengYun-3</th><th style="color:var(--ru)">Meteor-M</th></tr>'
+ +'<tr><td>Band / depth</td><td>L · <b>~5 cm</b></td><td>X · <b>~1 cm</b></td><td>X (of many) · ~1 cm</td></tr>'
+ +'<tr><td>Retrieval</td><td>physics inversion / change detection</td><td><b>machine-learned</b>, teacher-dependent</td><td>physics school; experimental products</td></tr>'
+ +'<tr><td>Public product</td><td>yes, formal σ budgets</td><td>yes; σ ≈ <b>0.06</b>-class, no formal requirement</td><td><b>none</b> — assimilated internally</td></tr>'
+ +'<tr><td>Auditability</td><td>open data + open algorithm</td><td>partial: answers testable, training opaque</td><td>internal; deepest in-situ archive unshared</td></tr>'
+ +'<tr><td>Share of merged record</td><td colspan="3">~90% Western — set by openness policy, not physics (see Four Flags)</td></tr></table>';
+
+function workingHTML(s){
+  if(s.cmp) return '<div class="m-sec"><div class="mh h-eq">The ledger</div>'+CMP_TABLE+'</div>'
+    +'<div class="m-sec"><div class="mh h-err">How error is stated</div><div class="m-err">Only some cells of this table carry a σ at all. An error budget is a promise made to outsiders — where there are no outsiders, there is no budget, and <b>absence of σ is not absence of error</b>.</div></div>';
+  if(s.track==='fork'){
+    return '<div class="wsplit">'
+      +'<div class="col"><div class="m-sec"><div class="mh h-cn">FengYun-3</div><div class="m-eq">'+s.a.eq+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-work">Worked</div><div class="m-work">'+s.a.work+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-err">Error</div><div class="m-err">'+s.a.err+'</div>'
+      +(s.sC?'<span class="sigchip">σ ≈ '+s.sC.toFixed(3)+' m³/m³</span>':'')+'</div></div>'
+      +'<div class="col"><div class="m-sec"><div class="mh h-ru">Meteor-M</div><div class="m-eq">'+s.s.eq+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-work">Worked</div><div class="m-work">'+s.s.work+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-err">Error</div><div class="m-err">'+s.s.err+'</div>'
+      +'<span class="sigchip na">no public σ — the finding itself</span></div></div></div>';
+  }
+  const chip = s.sC?'<span class="sigchip">σ (FY-3) ≈ '+s.sC.toFixed(3)+' m³/m³ joins the quadrature sum</span>':'';
+  return '<div class="m-sec"><div class="mh h-eq">The equation</div><div class="m-eq">'+s.eq+'</div></div>'
+    +'<div class="m-sec"><div class="mh h-work">Worked numbers</div><div class="m-work">'+s.work+'</div></div>'
+    +'<div class="m-sec"><div class="mh h-err">How error arises</div><div class="m-err">'+s.err+'</div>'+chip+'</div>';
+}
+function showWorking(i){
+  if(i===shownStage) return; shownStage=i;
+  const s=STAGES[i];
+  document.getElementById('wtitle').textContent='The working · step '+(i+1)+' — '+s.title;
+  document.getElementById('wbody').innerHTML=workingHTML(s);
+  const w=document.getElementById('working');
+  if(!w.dataset.userClosed && innerWidth>900) w.classList.remove('closed');
+}
+document.getElementById('working').addEventListener('click',function(e){
+  if(e.target.closest('.whead')) this.dataset.userClosed=this.classList.contains('closed')?'':'1';
+});
+showWorking(0);
+
+// ═══ HUD ═══
+let purC=90,purR=90,ebC=0;
+function updateHUD(idx){
+  const s=STAGES[idx], forked=idx>=5;
+  document.getElementById('hud').parentElement.classList.toggle('forked',forked);
+  document.getElementById('purAlab').innerHTML = forked?'<i style="color:var(--cn)">FY-3</i> glow is still…':'Glow is still…';
+  document.getElementById('ebAlab').innerHTML = forked?'<i style="color:var(--cn)">FY-3</i> σ (m³/m³)':'Error budget';
+  purC+=(s.purC-purC)*0.1; purR+=(s.purR-purR)*0.1;
+  document.getElementById('mfill').style.width=purC.toFixed(1)+'%';
+  document.getElementById('purv').textContent=Math.round(purC)+'%'+(forked?'':' measurement');
+  document.getElementById('mfillB').style.width=purR.toFixed(1)+'%';
+  document.getElementById('purvB').textContent=Math.round(purR)+'%';
+  document.getElementById('mcap').textContent = purC>75?'the same physics as SMAP — pitched seven octaves too high.'
+    : purC>55?'the canopy and the crowded spectrum are taking their cut.'
+    : purC>35?'multi-frequency bookkeeping — compensation, at a price.'
+    : 'now mostly institution: training data, portals, and policy.';
+  ebC+=(CUMC[idx]-ebC)*0.1;
+  document.getElementById('ebv').textContent='σ ≈ '+ebC.toFixed(3);
+  document.getElementById('efill').style.width=Math.min(100,(ebC/0.08)*100)+'%';
+  document.getElementById('stageno').textContent='step '+(idx+1)+' / '+STAGES.length+' · '+s.tag;
+}
+
+// ═══ 3D ═══
+const SAT_Y=120, OFF=1400;
+const KFA=[
+  {p:[ 30, 12, 38], l:[0,  2, 0]},        // 0 skin depth — at the soil core
+  {p:[ 40, 24, 52], l:[0,  9, 0]},        // 1 canopy wall
+  {p:[ 58, 60, 88], l:[0, 30, 0]},        // 2 no fence — RFI city
+  {p:[ 30, 98, 60], l:[0, 84, 0]},        // 3 many frequencies
+  {p:[ 12,126, 14], l:[0,119.5,0]},       // 4 whose ruler — satellite close
+  {p:[ 44,100, 72], l:[0, 60, 0]},        // 5 instrument — constellation
+  {p:[-30, 92, 42], l:[0, 80, 0]},        // 6 retrieval — the learned box
+  {p:[ 34, 46, 62], l:[0, 12, 0]},        // 7 audit — the glass portal
+  {p:[  0,150,105], l:[0,  0, 8]},        // 8 product — grid top-down
+  {p:[ 60, 60, 95], l:[0, 45, 0]},        // 9 ledger — vista
+  {p:[ 26, 84, 30], l:[10, 78, 0]},       // 10 cosmopolitan — the Mironov curve
+];
+const KFB=[
+  null,null,null,null,null,
+  {p:[OFF+42, 96, 70], l:[OFF, 55, 0]},   // 5 MTVZA — atmosphere's instrument
+  {p:[OFF+30, 88, 34], l:[OFF+16, 76, -3]},// 6 Mironov curve panel (lower-left of viewport)
+  {p:[OFF+34, 40, 58], l:[OFF,  6, 0]},   // 7 ground network
+  {p:[OFF-26, 62, 74], l:[OFF+12, 18, -8]},// 8 assimilation box (lower-left of viewport)
+  null,null,
+];
+const canvas=document.getElementById('cv');
+let app=null,camA=null,camB=null,PROPS={},labelPool=[];
+
+function ctex(w,h,draw){
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  draw(c.getContext('2d'),w,h);
+  const t=new pc.Texture(app.graphicsDevice,{width:w,height:h,format:pc.PIXELFORMAT_R8_G8_B8_A8,mipmaps:true});
+  t.setSource(c); t.minFilter=pc.FILTER_LINEAR_MIPMAP_LINEAR; t.magFilter=pc.FILTER_LINEAR;
+  t.addressU=pc.ADDRESS_CLAMP_TO_EDGE; t.addressV=pc.ADDRESS_CLAMP_TO_EDGE;
+  return t;
+}
+function mat(o){
+  const m=new pc.StandardMaterial();
+  if(o.color)m.diffuse.set(...o.color);
+  if(o.emissive)m.emissive.set(...o.emissive);
+  if(o.map)m.diffuseMap=o.map;
+  if(o.emissiveMap)m.emissiveMap=o.emissiveMap;
+  if(o.opacity!==undefined){m.opacity=o.opacity;m.blendType=pc.BLEND_NORMAL;m.depthWrite=false;}
+  if(o.opacityMap){m.opacityMap=o.opacityMap;m.blendType=pc.BLEND_NORMAL;m.depthWrite=false;}
+  if(o.cull!==undefined)m.cull=o.cull;
+  if(o.unlit)m.useLighting=false;
+  m.update(); return m;
+}
+function prim(type,m,pos,scl,rot){
+  const e=new pc.Entity(); e.addComponent('render',{type:type}); e.render.material=m;
+  if(pos)e.setLocalPosition(...pos); if(scl)e.setLocalScale(...scl); if(rot)e.setLocalEulerAngles(...rot);
+  app.root.addChild(e); return e;
+}
+function reg(name,ents,mats,on,base){ PROPS[name]={ents,mats,on,base:base===undefined?1:base,cur:0}; }
+
+function buildScene(){
+  app=new pc.Application(canvas,{graphicsDeviceOptions:{antialias:true,alpha:false}});
+  app.setCanvasFillMode(pc.FILLMODE_NONE); app.setCanvasResolution(pc.RESOLUTION_AUTO); app.start();
+  const box=document.getElementById('stage3d');
+  function fit(){ app.resizeCanvas(box.clientWidth,box.clientHeight); }
+  new ResizeObserver(fit).observe(box); fit();
+  app.scene.ambientLight=new pc.Color(0.30,0.31,0.35);
+  try{ app.scene.fog=pc.FOG_LINEAR; app.scene.fogColor=new pc.Color(0.05,0.08,0.13); app.scene.fogStart=200; app.scene.fogEnd=700; }
+  catch(e){ try{ app.scene.fog.type='linear'; app.scene.fog.color=new pc.Color(0.05,0.08,0.13); app.scene.fog.start=200; app.scene.fog.end=700; }catch(_){} }
+
+  camA=new pc.Entity(); camA.addComponent('camera',{clearColor:new pc.Color(0.02,0.03,0.055),farClip:2600,fov:44,priority:0});
+  camA.setPosition(...KFA[0].p); app.root.addChild(camA);
+  camB=new pc.Entity(); camB.addComponent('camera',{clearColor:new pc.Color(0.02,0.03,0.055),farClip:2600,fov:44,priority:1});
+  camB.setPosition(OFF+40,90,70); camB.enabled=false; app.root.addChild(camB);
+
+  const sun=new pc.Entity(); sun.addComponent('light',{type:'directional',color:new pc.Color(1,0.88,0.7),intensity:1.45}); sun.setEulerAngles(38,150,0); app.root.addChild(sun);
+  const rim=new pc.Entity(); rim.addComponent('light',{type:'directional',color:new pc.Color(0.45,0.55,0.85),intensity:0.5}); rim.setEulerAngles(-25,-40,0); app.root.addChild(rim);
+
+  buildSky(); buildDiorama(0,'cn'); buildDiorama(OFF,'ru');
+  buildSatCN(); buildSatRU(); buildBeams(); buildBeads();
+  buildDepthLines(); buildRFICity(); buildFreqFan(); buildRefCubes();
+  buildTrain(); buildNNBox(); buildCurvePanels(); buildGlassDoor(); buildStations(); buildGridCN(); buildNWPBox();
+  app.on('update',update);
+}
+function buildSky(){
+  const t=ctex(64,512,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'#04050c'); gr.addColorStop(0.35,'#0a1322'); gr.addColorStop(0.60,'#15243a');
+    gr.addColorStop(0.80,'#2e3a4a'); gr.addColorStop(1,'#463f33');
+    g.fillStyle=gr; g.fillRect(0,0,w,h);
+    g.fillStyle='#fff';
+    for(let i=0;i<200;i++){ g.globalAlpha=0.25+Math.random()*0.55; g.fillRect(Math.random()*w,Math.random()*h*0.45,1.2,1.2); }
+    g.globalAlpha=1;
+  });
+  const m=mat({map:t,unlit:true,cull:pc.CULLFACE_FRONT,fog:false});
+  PROPS.__skyA=prim('sphere',m,[0,0,0],[1900,1900,1900]);
+  PROPS.__skyB=prim('sphere',m,[OFF,0,0],[1900,1900,1900]);
+}
+function terrTex(kind){
+  return ctex(1024,1024,(g,w,h)=>{
+    const base = kind==='cn'?'#3f4a24':'#3c4038';
+    g.fillStyle=base; g.fillRect(0,0,w,h);
+    let y=0;
+    while(y<h){ const rh=40+Math.random()*90; let x=0;
+      while(x<w){ const rw=60+Math.random()*140; const p=Math.random();
+        if(kind==='cn') g.fillStyle=p<0.3?'#4c5c28':p<0.55?'#5d6a2d':p<0.75?'#6d5f2f':p<0.9?'#42522a':'#2e4638';
+        else g.fillStyle=p<0.3?'#4a5044':p<0.5?'#565c4c':p<0.7?'#606454':p<0.86?'#6e6f60':'#8b9190';
+        g.fillRect(x,y,rw-2,rh-2); x+=rw; } y+=rh; }
+    g.strokeStyle='rgba(25,25,18,.75)'; g.lineWidth=3;
+    for(let i=0;i<11;i++){ g.beginPath(); g.moveTo(Math.random()*w,0); g.bezierCurveTo(Math.random()*w,h*0.3,Math.random()*w,h*0.7,Math.random()*w,h); g.stroke(); }
+    g.strokeStyle='rgba(80,110,140,.5)'; g.lineWidth=13; g.beginPath();
+    g.moveTo(w*0.75,0); g.bezierCurveTo(w*0.6,h*0.4,w*0.85,h*0.62,w*0.7,h); g.stroke();
+    if(kind==='ru'){ // snow patches
+      for(let i=0;i<26;i++){ g.fillStyle='rgba(225,232,238,.5)';
+        g.beginPath(); g.ellipse(Math.random()*w,Math.random()*h,14+Math.random()*40,8+Math.random()*20,Math.random()*3,0,7); g.fill(); }
+    }
+  });
+}
+function buildDiorama(ox,kind){
+  const N=64,S=460,pos=[],uvs=[],idx=[];
+  const hgt=(x,z)=>{ const r=Math.hypot(x,z);
+    let y=Math.sin(x*0.018)*Math.cos(z*0.016)*1.8+Math.sin(x*0.05+z*0.045)*0.6;
+    return y*Math.min(1,Math.max(0,(r-22)/40)); };
+  for(let j=0;j<=N;j++)for(let i=0;i<=N;i++){
+    const x=(i/N-0.5)*S,z=(j/N-0.5)*S;
+    pos.push(x+ox,hgt(x,z),z); uvs.push(i/N,1-j/N);
+  }
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){ const a=j*(N+1)+i,b=a+1,c=a+N+1,d=c+1; idx.push(a,c,b,b,c,d); }
+  const nrm=pc.calculateNormals(pos,idx);
+  const mesh=pc.createMesh(app.graphicsDevice,pos,{normals:nrm,uvs:uvs,indices:idx});
+  const mi=new pc.MeshInstance(mesh,mat({map:terrTex(kind)}));
+  const e=new pc.Entity(); e.addComponent('render',{meshInstances:[mi]}); app.root.addChild(e);
+  // vegetation: dense crops (cn) / sparse birch sticks (ru)
+  if(kind==='cn'){
+    const m1=mat({color:[0.20,0.44,0.20]}), m2=mat({color:[0.28,0.52,0.22]});
+    for(let i=0;i<130;i++){ const a=Math.random()*Math.PI*2,r=14+Math.random()*90;
+      const hh=1.6+Math.random()*1.6;
+      prim('cone',Math.random()<0.5?m1:m2,[ox+Math.cos(a)*r,hh/2,Math.sin(a)*r*0.8],[0.9+Math.random()*0.9,hh,0.9+Math.random()*0.9]); }
+  }else{
+    const m1=mat({color:[0.82,0.84,0.82]}), m2=mat({color:[0.30,0.34,0.28]});
+    for(let i=0;i<70;i++){ const a=Math.random()*Math.PI*2,r=14+Math.random()*90;
+      const hh=2.2+Math.random()*2.2;
+      prim('cylinder',Math.random()<0.7?m1:m2,[ox+Math.cos(a)*r,hh/2,Math.sin(a)*r*0.8],[0.16,hh,0.16]); }
+  }
+  // soil core
+  const side=ctex(256,128,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'#7d6440'); gr.addColorStop(0.4,'#5c4830'); gr.addColorStop(1,'#3a2d1e');
+    g.fillStyle=gr; g.fillRect(0,0,w,h);
+    for(let i=0;i<70;i++){ g.fillStyle='rgba(28,20,12,'+(0.15+Math.random()*0.25)+')';
+      g.beginPath(); g.ellipse(Math.random()*w,Math.random()*h,2+Math.random()*5,1+Math.random()*3,0,0,7); g.fill(); }
+    for(let i=0;i<10;i++){ g.fillStyle='rgba(50,85,115,'+(0.25+Math.random()*0.25)+')';
+      g.beginPath(); g.ellipse(Math.random()*w,h*0.4+Math.random()*h*0.55,9+Math.random()*18,4+Math.random()*7,0,0,7); g.fill(); }
+  });
+  prim('box',mat({map:side}),[ox,0.2,0],[22,5.2,14]);
+  prim('plane',mat({color:[0.34,0.30,0.20]}),[ox,2.83,0],[22,1,14]);
+}
+// ── satellites ──
+let drumCN=null,satTrain=[];
+function buildSatCN(){ // MWRI conical scanner: body + spinning slanted drum dish
+  const root=new pc.Entity(); root.setPosition(0,SAT_Y,0); app.root.addChild(root); PROPS.__satCN=root;
+  const mBody=mat({color:[0.80,0.83,0.87]}), mPanel=mat({color:[0.10,0.22,0.42],emissive:[0.04,0.10,0.22]});
+  const b=new pc.Entity(); b.addComponent('render',{type:'box'}); b.render.material=mBody; b.setLocalScale(4.5,3,3); root.addChild(b);
+  [-1,1].forEach(s=>{ const p=new pc.Entity(); p.addComponent('render',{type:'box'}); p.render.material=mPanel;
+    p.setLocalScale(8,0.15,2.8); p.setLocalPosition(s*6.4,0.7,0); root.addChild(p); });
+  drumCN=new pc.Entity(); drumCN.setLocalPosition(0,-2.6,0); root.addChild(drumCN);
+  const mDish=mat({color:[0.85,0.78,0.55],emissive:[0.22,0.16,0.05]});
+  const d=new pc.Entity(); d.addComponent('render',{type:'cylinder'}); d.render.material=mDish;
+  d.setLocalScale(5,0.5,5); d.setLocalPosition(1.6,0,0); d.setLocalEulerAngles(0,0,38); drumCN.addChild(d);
+}
+function buildSatRU(){ // MTVZA: boxy body + row of feed horns, beams aimed at atmosphere
+  const root=new pc.Entity(); root.setPosition(OFF,SAT_Y,0); app.root.addChild(root); PROPS.__satRU=root;
+  const mBody=mat({color:[0.75,0.78,0.82]}), mPanel=mat({color:[0.10,0.22,0.42],emissive:[0.04,0.10,0.22]}), mHorn=mat({color:[0.6,0.62,0.66]});
+  const b=new pc.Entity(); b.addComponent('render',{type:'cylinder'}); b.render.material=mBody; b.setLocalScale(3,5.5,3); root.addChild(b);
+  const p=new pc.Entity(); p.addComponent('render',{type:'box'}); p.render.material=mPanel;
+  p.setLocalScale(2.8,0.14,9.5); p.setLocalPosition(0,2.2,-6.4); root.addChild(p);
+  for(let i=0;i<6;i++){ const h=new pc.Entity(); h.addComponent('render',{type:'cone'}); h.render.material=mHorn;
+    h.setLocalScale(0.7,1.3,0.7); h.setLocalPosition(-1.5+i*0.62,-3.1,0.8-i*0.32); h.setLocalEulerAngles(160,0,0); root.addChild(h); }
+  // atmosphere shell it actually stares at
+  const mAtm=mat({emissive:[0.5,0.65,0.9],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const shell=prim('plane',mAtm,[OFF,62,0],[300,1,300]);
+  reg('atmShell',[shell],[mAtm],[5],0.14);
+}
+function buildBeams(){
+  const mA=mat({emissive:[1,0.72,0.2],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const bA=prim('cone',mA,[0,SAT_Y/2-2,0],[58,SAT_Y-6,58]); bA.setLocalEulerAngles(180,0,0);
+  reg('beamA',[bA],[mA],[0,1,2,3,4,5,6,7,8],0.08);
+  const mB=mat({emissive:[0.85,0.5,0.7],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const bB=prim('cone',mB,[OFF,SAT_Y/2-2,0],[30,SAT_Y-6,30]); bB.setLocalEulerAngles(180,0,0);
+  reg('beamB',[bB],[mB],[5,6,7,8],0.06);
+}
+let beadsA=[],beadsB=[];
+function buildBeads(){
+  const mUp=mat({emissive:[1,0.72,0.25],color:[0.2,0.14,0.04],opacity:0.9});
+  const mUpB=mat({emissive:[0.85,0.55,0.72],color:[0.18,0.1,0.14],opacity:0.9});
+  for(let i=0;i<30;i++){
+    const a=new pc.Entity(); a.addComponent('render',{type:'sphere'}); a.render.material=mUp; a.setLocalScale(0.85,0.85,0.85); app.root.addChild(a);
+    beadsA.push({e:a,off:i/30});
+    const b=new pc.Entity(); b.addComponent('render',{type:'sphere'}); b.render.material=mUpB; b.setLocalScale(0.8,0.8,0.8); app.root.addChild(b);
+    beadsB.push({e:b,off:i/30});
+  }
+  PROPS.__mUp=mUp; PROPS.__mUpB=mUpB;
+}
+// ── skin-depth cutaway lines ──
+function buildDepthLines(){
+  const mL=mat({emissive:[0.28,0.78,0.55],color:[0,0,0],opacity:0});
+  const mX=mat({emissive:[1,0.62,0.15],color:[0,0,0],opacity:0});
+  const lLine=prim('box',mL,[0,1.05,7.05],[22,0.28,0.16]);   // ~5 cm line (deep) on core front face
+  const xLine=prim('box',mX,[0,2.62,7.05],[22,0.28,0.16]);   // ~1 cm line (shallow)
+  reg('depthL',[lLine],[mL],[0],0.95);
+  reg('depthX',[xLine],[mX],[0],0.95);
+}
+// ── RFI city: many emitters, no fence ──
+let cityBolts=[];
+function buildRFICity(){
+  const mT=mat({color:[0.5,0.45,0.42]});
+  const mBolt=mat({emissive:[1,0.3,0.35],color:[0,0,0],opacity:0});
+  const spots=[[40,28],[-46,14],[22,-42],[-30,-34],[56,-8],[-12,44]];
+  spots.forEach(([x,z],i)=>{
+    prim('cylinder',mT,[x,2.5,z],[0.6,5,0.6]);
+    const bolt=new pc.Entity(); bolt.addComponent('render',{type:'cylinder'}); bolt.render.material=mBolt;
+    bolt.setPosition(x*0.5,(5+SAT_Y-2)/2,z*0.5); bolt.lookAt(0,SAT_Y-2,0); bolt.rotateLocal(90,0,0);
+    bolt.setLocalScale(0.4,Math.hypot(x,SAT_Y-7,z)*0.95,0.4);
+    app.root.addChild(bolt); cityBolts.push({e:bolt,ph:i*1.4});
+  });
+  // broken fence: dashed posts that stop
+  const mF=mat({emissive:[0.6,0.75,0.9],color:[0,0,0],opacity:0});
+  const fence=[];
+  for(let i=0;i<5;i++){ fence.push(prim('box',mF,[-70+i*10,3,52],[0.4,6,0.4])); }
+  reg('bolts',cityBolts.map(b=>b.e),[mBolt],[2],0.8);
+  reg('fence',fence,[mF],[2],0.5);
+  PROPS.__cityBoltMat=mBolt;
+}
+// ── multi-frequency fan: five coloured thin cones ──
+function buildFreqFan(){
+  const cols=[[1,0.72,0.2],[0.95,0.5,0.3],[0.4,0.8,0.6],[0.4,0.6,0.95],[0.75,0.55,0.95]];
+  const ents=[],mats=[];
+  cols.forEach((c,i)=>{
+    const m=mat({emissive:c,color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+    const e=new pc.Entity(); e.addComponent('render',{type:'cone'}); e.render.material=m;
+    e.setPosition((i-2)*3,SAT_Y/2-2+i*1.5,0);
+    e.setLocalScale(4+i*1.2,SAT_Y-8,4+i*1.2);
+    e.setLocalEulerAngles(180,0,(i-2)*3);
+    app.root.addChild(e); ents.push(e); mats.push(m);
+  });
+  reg('freqfan',ents,mats,[3],0.18);
+}
+// ── calibration reference cubes (whose ruler) ──
+function buildRefCubes(){
+  const mFY=mat({emissive:[0.9,0.62,0.1],color:[0.3,0.2,0.02],opacity:0});
+  const mRef=mat({emissive:[0.3,0.75,0.55],color:[0.05,0.22,0.14],opacity:0});
+  const fy=prim('box',mFY,[4.8,SAT_Y+1.6,3],[1.2,1.2,1.2]);
+  const ref=prim('box',mRef,[4.8,SAT_Y-1.0,3],[1.2,1.2,1.2]);
+  const mArm=mat({emissive:[0.95,0.8,0.4],color:[0,0,0],opacity:0});
+  const arm=prim('box',mArm,[4.8,SAT_Y+0.3,3],[0.16,2.2,0.16]);
+  reg('refcubes',[fy,ref,arm],[mFY,mRef,mArm],[4],0.95);
+}
+// ── FY constellation train ──
+function buildTrain(){
+  const mS=mat({color:[0.8,0.83,0.87],emissive:[0.12,0.12,0.14],opacity:0});
+  satTrain=[];
+  for(let i=0;i<3;i++){
+    const e=new pc.Entity(); e.addComponent('render',{type:'box'}); e.render.material=mS;
+    e.setLocalScale(2.2,1.5,1.5); app.root.addChild(e); satTrain.push(e);
+  }
+  reg('train',satTrain,[mS],[5],0.9);
+}
+// ── learned-retrieval box: mesh net fed by teacher orbs ──
+let teachOrbs=[];
+function buildNNBox(){
+  const t=ctex(256,128,(g,w,h)=>{
+    g.fillStyle='rgba(230,159,0,0.10)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(230,159,0,0.9)'; g.lineWidth=5; g.strokeRect(3,3,w-6,h-6);
+    g.strokeStyle='rgba(230,159,0,0.45)'; g.lineWidth=2;
+    for(let x=0;x<w;x+=22){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,h); g.stroke(); }
+    for(let y=0;y<h;y+=22){ g.beginPath(); g.moveTo(0,y); g.lineTo(w,y); g.stroke(); }
+  });
+  const m=mat({emissiveMap:t,emissive:[0.9,0.9,0.9],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const boxE=prim('box',m,[0,80,0],[15,8.5,10]);
+  const defs=[[0.28,0.78,0.55],[0.35,0.6,0.95],[0.9,0.9,0.95]]; // teacher products
+  teachOrbs=[];
+  defs.forEach((c,i)=>{
+    const mo=mat({emissive:c,color:[0,0,0],opacity:0});
+    const e=new pc.Entity(); e.addComponent('render',{type:'sphere'}); e.render.material=mo;
+    e.setLocalScale(1.6,1.6,1.6); app.root.addChild(e); teachOrbs.push({e,m:mo,i});
+  });
+  const mOut=mat({emissive:[0.95,0.75,0.25],color:[0.2,0.15,0.03],opacity:0});
+  const out=prim('sphere',mOut,[0,73,0],[2.1,2.1,2.1]);
+  reg('nnbox',[boxE,out,...teachOrbs.map(o=>o.e)],[m,mOut,...teachOrbs.map(o=>o.m)],[6],0.75);
+}
+// ── Mironov curve panels (RU fork + coda on A) ──
+function curveTex(title,sub){
+  return ctex(512,360,(g,w,h)=>{
+    g.fillStyle='rgba(8,16,26,0.92)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(204,121,167,0.9)'; g.lineWidth=3; g.strokeRect(4,4,w-8,h-8);
+    g.strokeStyle='rgba(255,255,255,0.4)'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(60,30); g.lineTo(60,h-60); g.lineTo(w-30,h-60); g.stroke();
+    g.strokeStyle='#cc79a7'; g.lineWidth=5; g.beginPath();
+    for(let i=0;i<=100;i++){ const p=i/100; const x=60+p*(w-100);
+      const y=(h-60)-Math.pow(p,0.62)*(h-110);
+      i===0?g.moveTo(x,y):g.lineTo(x,y); }
+    g.stroke();
+    g.fillStyle='#eaf2f7'; g.font='700 22px Georgia'; g.fillText(title,70,44);
+    g.fillStyle='#9fb4c4'; g.font='17px Georgia'; g.fillText(sub,70,72);
+    g.fillStyle='#9fb4c4'; g.font='19px Georgia'; g.fillText('ε →',w-70,h-26);
+    g.save(); g.translate(30,h-90); g.rotate(-Math.PI/2); g.fillText('θv →',0,0); g.restore();
+  });
+}
+function buildCurvePanels(){
+  const mB=mat({emissiveMap:curveTex('Миронов — ГРМДМ','обобщённая рефракционная модель · the world’s wet-soil curve'),emissive:[1,1,1],color:[0,0,0],opacity:0,unlit:true,cull:pc.CULLFACE_NONE});
+  const eB=prim('plane',mB,[OFF+16,75,-3],[13,1,9.2]);
+  reg('curveRU',[eB],[mB],[6],0.97);
+  PROPS.__curveRU=eB;
+  const mA=mat({emissiveMap:curveTex('Mironov — inside every pipeline','the same curve, in Beijing, Moscow, Pasadena, Frascati'),emissive:[1,1,1],color:[0,0,0],opacity:0,unlit:true,cull:pc.CULLFACE_NONE});
+  const eA=prim('plane',mA,[10,78,3],[13,1,9.2]);
+  reg('curveA',[eA],[mA],[10],0.97);
+  PROPS.__curveA=eA;
+}
+// ── glass portal (audit step, CN) ──
+function buildGlassDoor(){
+  const t=ctex(256,256,(g,w,h)=>{
+    g.fillStyle='rgba(140,190,230,0.20)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(230,159,0,0.9)'; g.lineWidth=8; g.strokeRect(4,4,w-8,h-8);
+    g.strokeStyle='rgba(255,255,255,0.5)'; g.lineWidth=3;
+    g.beginPath(); g.moveTo(w/2,4); g.lineTo(w/2,h-4); g.stroke();
+    g.fillStyle='rgba(255,255,255,0.85)'; g.font='700 34px Georgia'; g.textAlign='center';
+    g.fillText('数据门户',w/2,h*0.45); g.font='20px Georgia'; g.fillText('data portal',w/2,h*0.58);
+  });
+  const m=mat({emissiveMap:t,emissive:[0.9,0.9,0.9],opacityMap:t,opacity:0,unlit:true,cull:pc.CULLFACE_NONE});
+  const e=prim('plane',m,[0,10,10],[24,1,17]); e.setLocalEulerAngles(90,0,0);
+  reg('glass',[e],[m],[7],0.85);
+}
+// ── RU ground stations ──
+function buildStations(){
+  const mP=mat({color:[0.7,0.72,0.75]});
+  const mG=mat({emissive:[0.3,0.9,0.5],color:[0,0,0],opacity:0});
+  const lights=[];
+  for(let i=0;i<22;i++){
+    const a=Math.random()*Math.PI*2,r=16+Math.random()*85;
+    const x=OFF+Math.cos(a)*r,z=Math.sin(a)*r*0.8;
+    prim('cylinder',mP,[x,1.4,z],[0.28,2.8,0.28]);
+    const l=new pc.Entity(); l.addComponent('render',{type:'sphere'}); l.render.material=mG;
+    l.setLocalScale(0.9,0.9,0.9); l.setPosition(x,3.2,z); app.root.addChild(l); lights.push(l);
+  }
+  reg('stations',lights,[mG],[7],0.95);
+}
+// ── FY product grid ──
+function buildGridCN(){
+  const t=ctex(128,128,(g,w,h)=>{
+    g.fillStyle='rgba(230,159,0,0.12)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(230,159,0,0.95)'; g.lineWidth=6; g.strokeRect(3,3,w-6,h-6);
+  });
+  const m=mat({emissiveMap:t,emissive:[1,1,1],opacityMap:t,opacity:0,unlit:true});
+  const tiles=[];
+  for(let i=-2;i<=2;i++)for(let j=-2;j<=2;j++){ tiles.push(prim('plane',m,[i*30,1.5,j*30],[28,1,28])); }
+  reg('gridCN',tiles,[m],[8],0.85);
+}
+// ── RU NWP assimilation box (instead of a grid) ──
+function buildNWPBox(){
+  const t=ctex(256,128,(g,w,h)=>{
+    g.fillStyle='rgba(204,121,167,0.10)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(204,121,167,0.9)'; g.lineWidth=6; g.strokeRect(3,3,w-6,h-6);
+    g.fillStyle='rgba(255,255,255,0.85)'; g.font='700 30px Georgia'; g.textAlign='center';
+    g.fillText('ЧПП · NWP',w/2,h*0.48);
+    g.font='16px Georgia'; g.fillText('assimilated — not published',w/2,h*0.72);
+  });
+  const m=mat({emissiveMap:t,emissive:[0.9,0.9,0.9],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const e=prim('box',m,[OFF,26,0],[20,10,13]);
+  reg('nwp',[e],[m],[8],0.8);
+}
+
+// ═══ labels (bilingual on forked steps) ═══
+const L=[
+  [ {c:'A',w:[0,3.1,7.5], t:'X-band hears ~1 cm', en:'感知深度约 1 厘米', col:'#e69f00'},
+    {c:'A',w:[0,1.0,7.5], t:'L-band heard ~5 cm', en:'the depth SMAP reads', col:'#46c78a'} ],
+  [ {c:'A',w:[9,3.6,7], t:'γ² ≈ 0.2 — the canopy wall', en:'most of the glow never escapes', col:'#ef6a5a'} ],
+  [ {c:'A',w:[40,9,28], t:'licensed neighbours, not intruders', en:'no protected band up here', col:'#e368b8'},
+    {c:'A',w:[-58,7,52], t:'the fence that isn’t there', en:'1400–1427 MHz protection ends at L-band', col:'#8fb8e0'} ],
+  [ {c:'A',w:[0,SAT_Y-14,0], t:'five frequencies, one soil channel', en:'high channels pin T and atmosphere', col:'#f2b24a'} ],
+  [ {c:'A',w:[4.8,SAT_Y+3.4,3], t:'harmonised against whose reference?', en:'cross-calibration = inherited bias', col:'#f2b24a'} ],
+  [ {c:'A',w:[0,SAT_Y-8,0], t:'风云家族 — a production line', en:'FY-3B→G, MWRI since 2010', col:'#e69f00'},
+    {c:'B',w:[OFF,62,20], t:'смотрит в атмосферу', en:'built to sound the atmosphere', col:'#cc79a7'} ],
+  [ {c:'A',w:[0,86,0], t:'随机森林 — trained on references', en:'the teacher’s bias becomes the label', col:'#e69f00'},
+    {c:'B',w:[OFF+16,81.5,-3], t:'Миронов — выведено из физики', en:'derived, not learned', col:'#cc79a7'} ],
+  [ {c:'A',w:[0,20,10], t:'数据门户 — partly open', en:'answers testable, training opaque', col:'#e69f00'},
+    {c:'B',w:[OFF,7,-30], t:'глубочайший архив — дома', en:'the deepest in-situ record, unshared', col:'#cc79a7'} ],
+  [ {c:'A',w:[32,4,32], t:'25 km · daily · 2010–', en:'a published global record', col:'#e69f00'},
+    {c:'B',w:[OFF,32,0], t:'ассимилировано — не опубликовано', en:'absorbed by the weather model', col:'#cc79a7'} ],
+  [ {c:'A',w:[0,SAT_Y-10,0], t:'four journeys, one ledger', en:'the record is a set of decisions', col:'#e368b8'} ],
+  [ {c:'A',w:[10,84.5,3], t:'Миронов — inside every pipeline', en:'data has borders; physics doesn’t', col:'#cc79a7'} ],
+];
+function ensureLabels(n){
+  const holder=document.getElementById('labels');
+  while(labelPool.length<n){ const d=document.createElement('div'); d.className='lab3d'; holder.appendChild(d); labelPool.push(d); }
+}
+const _m4=(typeof pc!=='undefined')?new pc.Mat4():null, _v4=(typeof pc!=='undefined')?new pc.Vec4():null;
+function project(camEnt,wx,wy,wz,rectX,rectW){
+  const rect=document.getElementById('stage3d').getBoundingClientRect();
+  try{
+    _m4.copy(camEnt.camera.projectionMatrix);
+    const inv=camEnt.getWorldTransform().clone().invert();
+    _m4.mul(inv);
+    _v4.set(wx,wy,wz,1);
+    _m4.transformVec4(_v4,_v4);
+    if(_v4.w<=0) return null;
+    const nx=_v4.x/_v4.w, ny=_v4.y/_v4.w;
+    if(nx<-1.15||nx>1.15||ny<-1.15||ny>1.15) return null;
+    return { x:(rectX+(nx*0.5+0.5)*rectW)*rect.width, y:(1-(ny*0.5+0.5))*rect.height };
+  }catch(e){ return null; }
+}
+
+// ═══ update ═══
+let tGlob=0, split=0;
+const sV=(typeof pc!=='undefined')?new pc.Vec3():null, sV2=(typeof pc!=='undefined')?new pc.Vec3():null;
+function lerpKF(kfs,i0,i1,f,out){ const A=kfs[i0]||kfs[i1], B=kfs[i1]||kfs[i0];
+  out.p=[A.p[0]+(B.p[0]-A.p[0])*f, A.p[1]+(B.p[1]-A.p[1])*f, A.p[2]+(B.p[2]-A.p[2])*f];
+  out.l=[A.l[0]+(B.l[0]-A.l[0])*f, A.l[1]+(B.l[1]-A.l[1])*f, A.l[2]+(B.l[2]-A.l[2])*f]; }
+const _kf={p:[0,0,0],l:[0,0,0]};
+function update(dt){
+  tGlob+=dt; const t=tGlob;
+  active += (activeTarget-active)*Math.min(1,dt*4.5);
+  const idx=Math.max(0,Math.min(STAGES.length-1,Math.round(active)));
+  const i0=Math.floor(Math.max(0,Math.min(STAGES.length-1.001,active)));
+  const i1=Math.min(KFA.length-1,i0+1), f=Math.max(0,Math.min(1,active-i0));
+  const sm=f*f*(3-2*f);
+  const splitTarget=(idx>=5&&idx<=8)?1:0;
+  split += (splitTarget-split)*Math.min(1,dt*3);
+  const sp=Math.max(0,Math.min(1,split));
+  lerpKF(KFA,i0,i1,sm,_kf);
+  sV.set(_kf.p[0]+Math.sin(t*0.22)*0.8,_kf.p[1]+Math.sin(t*0.3)*0.5,_kf.p[2]);
+  camA.setPosition(sV); sV2.set(..._kf.l); camA.lookAt(sV2);
+  const wA=1-0.5*sp;
+  camA.camera.rect=new pc.Vec4(0,0,Math.max(0.02,wA),1);
+  if(sp>0.02){
+    camB.enabled=true;
+    const kb0=KFB[i0]?i0:5, kb1=KFB[i1]?i1:kb0;
+    lerpKF(KFB,kb0,kb1,sm,_kf);
+    sV.set(_kf.p[0],_kf.p[1]+Math.sin(t*0.27)*0.5,_kf.p[2]+Math.sin(t*0.2)*0.8);
+    camB.setPosition(sV); sV2.set(..._kf.l); camB.lookAt(sV2);
+    camB.camera.rect=new pc.Vec4(wA,0,Math.max(0.02,0.5*sp),1);
+  } else camB.enabled=false;
+  const div=document.getElementById('divider');
+  div.style.opacity=sp>0.5?1:0; div.style.left=(wA*100)+'%';
+  document.getElementById('banA').style.opacity=sp>0.5?1:0;
+  document.getElementById('banA').style.left=(wA*50)+'%';
+  document.getElementById('banB').style.opacity=sp>0.5?1:0;
+  document.getElementById('banB').style.left=((wA+0.25*sp)*100)+'%';
+
+  for(const k in PROPS){ if(k.startsWith('__'))continue; const p=PROPS[k];
+    const target=p.on.includes(idx)?p.base:0;
+    p.cur += (target-p.cur)*Math.min(1,dt*4);
+    p.mats.forEach(m=>{ m.opacity=p.cur; m.update(); });
+    p.ents.forEach(e=>{ e.enabled=p.cur>0.015; });
+  }
+  // beads rise (glow journeys — passive, one way)
+  const pur=STAGES[idx].purC/100;
+  beadsA.forEach(b=>{ const y=((t*30+b.off*SAT_Y)%SAT_Y);
+    b.e.setPosition(Math.sin(y*0.09)*0.8,y,Math.cos(y*0.08)*0.8); });
+  beadsB.forEach(b=>{ const y=((t*26+b.off*SAT_Y)%SAT_Y);
+    b.e.setPosition(OFF+Math.sin(y*0.09)*0.8,y,Math.cos(y*0.08)*0.8); });
+  PROPS.__mUp.opacity=0.25+0.6*pur; PROPS.__mUp.update();
+  PROPS.__mUpB.opacity=(split>0.5?0.25+0.6*STAGES[idx].purR/100:0.0); PROPS.__mUpB.update();
+  // conical drum spin
+  if(drumCN) drumCN.setLocalEulerAngles(0,t*120,0);
+  // constellation train
+  satTrain.forEach((e,i)=>{ const z=((t*7+i*45)%140)-70; e.setPosition(-20+i*20,SAT_Y+4,z); });
+  // bolts flicker
+  if(PROPS.__cityBoltMat&&PROPS.bolts){ PROPS.__cityBoltMat.opacity=PROPS.bolts.cur*(0.3+0.7*Math.abs(Math.sin(t*10))); PROPS.__cityBoltMat.update(); }
+  // teacher orbs spiral into NN box
+  teachOrbs.forEach(o=>{ const ph=(t*0.3+o.i/3)%1; const r=26*(1-ph)+2; const a=o.i*2.1+ph*4.5;
+    o.e.setPosition(Math.cos(a)*r,80+Math.sin(a*0.7)*6*(1-ph),Math.sin(a)*r);
+    o.m.opacity=(PROPS.nnbox?PROPS.nnbox.cur:0)*(ph<0.92?1:(1-ph)/0.08); o.m.update(); });
+  // billboard curve panels
+  if(PROPS.__curveRU&&PROPS.curveRU&&PROPS.curveRU.cur>0.02){
+    PROPS.__curveRU.lookAt(camB.getPosition()); PROPS.__curveRU.rotateLocal(-90,0,0); PROPS.__curveRU.rotateLocal(0,180,0); }
+  if(PROPS.__curveA&&PROPS.curveA&&PROPS.curveA.cur>0.02){
+    PROPS.__curveA.lookAt(camA.getPosition()); PROPS.__curveA.rotateLocal(-90,0,0); PROPS.__curveA.rotateLocal(0,180,0); }
+  PROPS.__skyA.setPosition(camA.getPosition());
+  if(camB.enabled) PROPS.__skyB.setPosition(camB.getPosition());
+
+  const defs=L[idx]||[];
+  ensureLabels(Math.max(defs.length,labelPool.length));
+  const wAr=1-0.5*sp;
+  labelPool.forEach((d,k)=>{
+    const def=defs[k];
+    if(!def){ d.style.opacity=0; return; }
+    if(def.c==='B'&&sp<0.5){ d.style.opacity=0; return; }
+    const pt = def.c==='B'
+      ? project(camB,def.w[0],def.w[1],def.w[2],wAr,0.5*sp)
+      : project(camA,def.w[0],def.w[1],def.w[2],0,wAr);
+    if(!pt){ d.style.opacity=0; return; }
+    d.innerHTML=def.t+(def.en?'<span class="l2">'+def.en+'</span>':'');
+    d.style.borderColor=def.col; d.style.opacity=1;
+    d.style.left=pt.x+'px'; d.style.top=pt.y+'px';
+  });
+
+  updateHUD(idx); showWorking(idx);
+}
+
+// ═══ boot ═══
+if(window.__noPC || typeof pc==='undefined'){
+  document.getElementById('fallback').style.display='flex';
+  (function loop(){ updateHUD(Math.round(activeTarget)); showWorking(Math.round(activeTarget)); requestAnimationFrame(loop); })();
+}else{
+  try{ buildScene(); }
+  catch(err){ console.error(err); document.getElementById('fallback').style.display='flex';
+    (function loop(){ updateHUD(Math.round(activeTarget)); showWorking(Math.round(activeTarget)); requestAnimationFrame(loop); })(); }
+}
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>
