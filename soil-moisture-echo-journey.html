@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaswari AgTech · The Echo's Journey — how active sensors capture soil moisture</title>
+<script src="https://code.playcanvas.com/playcanvas-stable.min.js" onerror="window.__noPC=true"></script>
+<style>
+  :root{
+    --measured:#46c78a; --contam:#ef6a5a; --avg:#39d0c8; --infer:#f2b24a; --box:#e368b8;
+    --ascat:#39d0c8; --s1:#b98cff;
+    --bg:#0a1420; --panel:rgba(12,22,34,.86); --ink:#eaf2f7; --dim:#9fb4c4;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.5}
+  a{color:#6fd0ff}
+  #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#39d0c8,#b98cff);width:0;z-index:50}
+  .hero{max-width:820px;margin:0 auto;padding:16vh 24px 8vh}
+  .hero h1{font-size:clamp(28px,5vw,46px);line-height:1.1;margin:0 0 16px;font-weight:700;letter-spacing:-.5px}
+  .hero .lede{font-size:clamp(16px,2.4vw,20px);color:var(--dim);max-width:660px}
+  .kick{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#6fd0ff;margin:0 0 14px}
+  .scrollcue{margin-top:40px;font-size:13px;color:var(--dim)}
+  .scrollcue span{display:inline-block;animation:bob 1.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+  #scrolly{position:relative;max-width:1280px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:24px}
+  #graphic{position:sticky;top:0;height:100vh;display:flex;align-items:center;justify-content:center}
+  #stage3d{position:relative;width:100%;height:88vh;max-height:960px;border-radius:14px;overflow:hidden;background:#070b12;border:1px solid rgba(255,255,255,.08)}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .lab3d{position:absolute;transform:translate(-4px,-50%);font:600 12px -apple-system,Segoe UI,Roboto,sans-serif;color:#fff;
+    background:rgba(6,13,22,.88);border:1.5px solid #fff;border-radius:7px;padding:4px 9px;white-space:nowrap;
+    box-shadow:0 4px 16px rgba(0,0,0,.5);transition:opacity .35s}
+  .lab3d::before{content:"";position:absolute;left:-5px;top:50%;width:8px;height:8px;border-radius:50%;transform:translate(-50%,-50%);background:inherit;border:inherit}
+  /* split divider + track banners */
+  #divider{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.5),transparent);opacity:0;transition:opacity .4s;pointer-events:none}
+  .tbanner{position:absolute;bottom:86px;transform:translateX(-50%);font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+    padding:4px 12px;border-radius:20px;background:rgba(6,13,22,.85);opacity:0;transition:opacity .4s;pointer-events:none;white-space:nowrap}
+  #banA{color:var(--ascat);border:1px solid var(--ascat)}
+  #banB{color:var(--s1);border:1px solid var(--s1)}
+  #hud{position:absolute;left:14px;top:14px;pointer-events:none;display:flex;flex-direction:column;gap:8px;max-width:280px}
+  .hudbox{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:9px 12px;backdrop-filter:blur(6px)}
+  .hudbox .lab{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:10px;margin-bottom:5px}
+  .hudbox .lab b{color:var(--ink)}
+  .track{height:10px;border-radius:6px;background:#22303d;overflow:hidden;display:flex;position:relative}
+  .track .m{background:var(--measured);height:100%}
+  .track .mB{background:var(--s1);height:100%}
+  .track .r{background:repeating-linear-gradient(45deg,#3a4a59,#3a4a59 4px,#455767 4px,#455767 8px);height:100%;flex:1}
+  .track .e{background:linear-gradient(90deg,#e0724a,#ef6a5a);height:100%}
+  .track .req{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff;opacity:.85}
+  .hudbox .cap{font-size:10px;color:var(--dim);margin-top:4px}
+  .mrow{margin-top:7px}
+  .mrow:first-child{margin-top:0}
+  .mrow .lab i{font-style:normal;font-weight:800;letter-spacing:.6px}
+  #ebB_box,#purB_row{display:none}
+  .forked #ebB_box,.forked #purB_row{display:block}
+  #legend{position:absolute;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:6px;max-width:55%}
+  .lc{font-size:10px;padding:3px 8px;border-radius:20px;background:rgba(6,13,22,.8);display:flex;align-items:center;gap:5px}
+  .lc i{width:9px;height:9px;border-radius:2px;display:inline-block}
+  #stageno{position:absolute;right:14px;bottom:14px;font-size:11px;color:var(--dim);background:rgba(6,13,22,.8);padding:4px 9px;border-radius:6px}
+  /* working popup */
+  #working{position:absolute;right:14px;top:14px;width:min(410px,47%);max-height:calc(100% - 58px);display:flex;flex-direction:column;
+    background:rgba(8,16,26,.93);border:1px solid rgba(255,255,255,.14);border-radius:12px;backdrop-filter:blur(8px);
+    box-shadow:0 14px 40px rgba(0,0,0,.55);z-index:5}
+  #working.closed .wbody{display:none}
+  #working .whead{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none}
+  #working .whead .sig{font-family:Georgia,serif;font-style:italic;font-weight:700;color:#ffd27a;font-size:15px}
+  #working .whead .wt{font-size:12px;font-weight:700;letter-spacing:.4px;flex:1}
+  #working .whead .chev{color:var(--dim);font-size:11px;transition:transform .25s}
+  #working.closed .whead .chev{transform:rotate(-90deg)}
+  #working .wbody{padding:2px 14px 13px;overflow-y:auto;font-size:12.5px;scrollbar-width:thin}
+  .m-sec{margin:9px 0 0}
+  .m-sec .mh{font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;font-weight:800;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+  .m-sec .mh::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1)}
+  .mh.h-eq{color:#8fd0ff}.mh.h-work{color:#46c78a}.mh.h-err{color:#ef8a7a}
+  .mh.h-a{color:var(--ascat)}.mh.h-s{color:var(--s1)}
+  .m-eq{font-family:Georgia,'Times New Roman',serif;font-size:14px;color:#eaf2f7;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:8px 11px;overflow-x:auto;white-space:nowrap;line-height:1.9;scrollbar-width:thin}
+  .m-eq i{font-style:italic}
+  .m-eq .small{font-size:11px;color:var(--dim);font-family:-apple-system,Segoe UI,Roboto,sans-serif;white-space:normal}
+  .fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 3px;line-height:1.25}
+  .fr>span:first-child{border-bottom:1px solid #cdd9e4;padding:0 4px}
+  .fr>span:last-child{padding:0 4px}
+  .sq{white-space:nowrap}
+  .sq .ov{border-top:1px solid #cdd9e4;padding:0 2px}
+  .m-work{color:#cfe0ec}
+  .m-work b{color:#fff}
+  .m-err{color:#e8c9c3}
+  .m-err b{color:#ffb3a6}
+  .sigchip{display:inline-block;margin-top:7px;font-size:11px;font-weight:700;color:#ffb3a6;background:rgba(239,106,90,.14);
+    border:1px solid rgba(239,106,90,.4);border-radius:6px;padding:2px 8px}
+  .wsplit{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .wsplit .col{min-width:0}
+  .wsplit .m-eq{font-size:12.5px;padding:7px 9px}
+  .cmp{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+  .cmp th,.cmp td{border:1px solid rgba(255,255,255,.12);padding:5px 7px;text-align:left;vertical-align:top}
+  .cmp th{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)}
+  .cmp td b{color:#fff}
+  /* steps column */
+  #steps{padding:40vh 0}
+  .step{min-height:84vh;display:flex;flex-direction:column;justify-content:center;opacity:.35;transition:opacity .3s}
+  .step.on{opacity:1}
+  .step .card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-left-width:4px;border-radius:12px;padding:18px 20px}
+  .step .tag{font-size:10px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:10px}
+  .step h3{margin:0 0 8px;font-size:20px}
+  .step .n{color:var(--dim);font-weight:600;margin-right:6px}
+  .step p{margin:0 0 10px;font-size:15px;color:#dbe6ef}
+  .step .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 10px}
+  .step .duo .d{border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:9px 11px;font-size:13px;color:#dbe6ef}
+  .step .duo .d .dh{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+  .step .duo .dA{border-left:3px solid var(--ascat)} .step .duo .dA .dh{color:var(--ascat)}
+  .step .duo .dS{border-left:3px solid var(--s1)} .step .duo .dS .dh{color:var(--s1)}
+  .step .enters{font-size:12.5px;color:var(--dim);border-top:1px dashed rgba(255,255,255,.14);padding-top:9px}
+  .step .enters b{color:var(--ink)}
+  .step .sline{margin-top:8px;font-size:11px;color:#ffb3a6}
+  .cat-measured{border-left-color:var(--measured)} .cat-measured .tag{background:rgba(70,199,138,.18);color:var(--measured)}
+  .cat-contam{border-left-color:var(--contam)} .cat-contam .tag{background:rgba(239,106,90,.18);color:var(--contam)}
+  .cat-avg{border-left-color:var(--avg)} .cat-avg .tag{background:rgba(57,208,200,.18);color:var(--avg)}
+  .cat-infer{border-left-color:var(--infer)} .cat-infer .tag{background:rgba(242,178,74,.18);color:var(--infer)}
+  .cat-box{border-left-color:var(--box)} .cat-box .tag{background:rgba(227,104,184,.18);color:var(--box)}
+  .cat-fork{border-left-color:#b98cff} .cat-fork .tag{background:rgba(185,140,255,.16);color:#c9a8ff}
+  .outro{max-width:760px;margin:0 auto;padding:10vh 24px 20vh}
+  .outro h2{font-size:clamp(22px,3.5vw,32px);margin:0 0 14px}
+  .outro p{color:#dbe6ef;font-size:16px}
+  .note{font-size:12.5px;color:var(--dim);font-style:italic;border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px}
+  #fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:30px;
+    background:linear-gradient(180deg,#05070f 0%,#0a1526 30%,#12263b 60%,#2a2418 100%);color:var(--dim);font-size:14px}
+  @media(max-width:900px){
+    #scrolly{grid-template-columns:1fr}
+    #graphic{height:58vh;top:42vh}
+    #stage3d{height:54vh}
+    #steps{padding:8vh 0}
+    .step{min-height:72vh}
+    #legend{display:none}
+    #working{width:min(360px,86%)}
+  }
+</style>
+</head>
+<body>
+<div id="bar"></div>
+
+<section class="hero">
+  <p class="kick">Kaswari AgTech · The Echo's Journey · companion to <a href="soil-moisture-capture-journey.html">The Signal's Journey</a></p>
+  <h1>The other way to ask the ground a question: shout at it.</h1>
+  <p class="lede">SMAP waits for the soil's faint natural glow. Active sensors don't wait — they <b>transmit a pulse and read their own echo</b>. Same soil, opposite epistemics: you control the illumination, but the surface answers with roughness and moisture tangled together. Scroll to follow one pulse down and back — and when the physics forks, the screen forks with it: <b style="color:var(--ascat)">ASCAT</b>, the real-aperture workhorse, against <b style="color:var(--s1)">Sentinel-1</b>, the synthetic-aperture prodigy.</p>
+  <p class="scrollcue"><span>↓</span> scroll to begin · C-band, over Mallee wheat country · maths panel top-right</p>
+</section>
+
+<div id="scrolly">
+  <div id="graphic">
+    <div id="stage3d">
+      <canvas id="cv"></canvas>
+      <div id="labels"></div>
+      <div id="divider"></div>
+      <div class="tbanner" id="banA">ASCAT · real aperture</div>
+      <div class="tbanner" id="banB">Sentinel-1 · synthetic aperture</div>
+      <div id="fallback"><div>The 3D scene needs the PlayCanvas engine from its CDN and couldn't load it here.<br>
+        The full story and every step's mathematical working still work — scroll on.</div></div>
+      <div id="hud">
+        <div class="hudbox">
+          <div class="mrow"><div class="lab"><span id="purAlab">Echo is still…</span><b id="purv">95% measurement</b></div>
+          <div class="track"><div class="m" id="mfill" style="width:95%"></div><div class="r"></div></div></div>
+          <div class="mrow" id="purB_row"><div class="lab"><span><i style="color:var(--s1)">S-1</i></span><b id="purvB">—</b></div>
+          <div class="track"><div class="mB" id="mfillB" style="width:0%"></div><div class="r"></div></div></div>
+          <div class="cap" id="mcap">a controlled pulse, a physical echo — for now.</div>
+        </div>
+        <div class="hudbox" id="eb_box">
+          <div class="mrow"><div class="lab"><span id="ebAlab">Error budget</span><b id="ebv">σ ≈ 0.0</b></div>
+          <div class="track"><div class="e" id="efill" style="width:0%"></div><div class="r"></div><div class="req" style="left:80%"></div></div></div>
+          <div class="mrow" id="ebB_box"><div class="lab"><span><i style="color:var(--s1)">S-1</i></span><b id="ebvB">—</b></div>
+          <div class="track"><div class="e" id="efillB" style="width:0%"></div><div class="r"></div><div class="req" style="left:71%"></div></div></div>
+          <div class="cap" id="ebcap">σ<sub>tot</sub> = √Σσ<sub>i</sub>² · ASCAT in % saturation · S-1 in m³/m³</div>
+        </div>
+      </div>
+      <div id="working" class="closed">
+        <div class="whead" onclick="document.getElementById('working').classList.toggle('closed')">
+          <span class="sig">Σ</span><span class="wt" id="wtitle">The working</span><span class="chev">▼</span>
+        </div>
+        <div class="wbody" id="wbody"></div>
+      </div>
+      <div id="legend">
+        <span class="lc"><i style="background:var(--measured)"></i>measured</span>
+        <span class="lc"><i style="background:var(--contam)"></i>contamination</span>
+        <span class="lc"><i style="background:var(--avg)"></i>averaging</span>
+        <span class="lc"><i style="background:var(--infer)"></i>inference / calibration</span>
+        <span class="lc"><i style="background:var(--box)"></i>black box</span>
+      </div>
+      <div id="stageno">—</div>
+    </div>
+  </div>
+  <div id="steps"></div>
+</div>
+
+<section class="outro">
+  <h2>Two echoes, two contracts</h2>
+  <p>The passive journey ends in an <b>absolute</b> number with a physics pedigree and a 0.04 m³/m³ error budget. The active journeys end differently: ASCAT delivers a <b>relative</b> number — beautifully stable, near-daily, but only meaningful against its own archive — and Sentinel-1 delivers <b>resolution</b> nobody else can touch, paid for in speckle and retrieval immaturity. None of the three is "the best"; they fail in different directions, which is exactly why the long-term climate records merge all of them.</p>
+  <p>Read them together: <a href="soil-moisture-capture-journey.html">the glow's journey</a> for how a measurement becomes an inference, and this one for how an echo becomes two entirely different products.</p>
+  <p class="note">Worked for ASCAT (MetOp, C-band scatterometer, TU Wien change detection) and Sentinel-1 (C-band SAR). Equations are the standard published forms (radar equation, Water Cloud model, σ⁰ normalisation, Kp, speckle statistics, change detection); worked numbers and per-step σ values are illustrative magnitudes, not operational algorithm internals. The passive companion piece covers SMAP.</p>
+</section>
+
+<script>
+// ═══════════ helpers ═══════════
+function fr(a,b){return '<span class="fr"><span>'+a+'</span><span>'+b+'</span></span>';}
+function sq(x){return '<span class="sq">√<span class="ov">'+x+'</span></span>';}
+
+// ═══════════ stage data ═══════════
+// track:'shared' | 'fork' | 'coda'. Fork steps carry a:{} and s:{} variants.
+const STAGES = [
+{ id:'pulse', track:'shared', cat:'measured', tag:'measured · you own the light', title:'Shout, then listen', purA:95, purS:95, sA:1.0, sS:0.004,
+  body:'A radiometer waits for nature to glow; a radar makes its own. The satellite fires a C-band pulse at the ground and times the echo. For the first time in this collection, the illumination itself is under human control — its power, shape and timing are known exactly.',
+  enters:'The echo is ~10<sup>17</sup> times weaker than the shout — but it is <b>your</b> shout.',
+  eq:'<i>P<sub>r</sub></i> = '+fr('<i>P<sub>t</sub></i> <i>G</i>² λ² σ⁰ <i>A</i>','(4π)³ <i>R</i>⁴')+' <span class="small">— the radar equation; σ⁰ is the ground’s reflectivity, the thing we’re after</span>',
+  work:'C-band: <i>f</i> ≈ 5.3–5.4 GHz, λ ≈ <b>5.6 cm</b>. From <i>R</i> ≈ 700–820 km, a kW-scale pulse returns as ~10⁻¹⁴ W. Unlike the passive journey, there is no unknown T<sub>eff</sub> — no borrowed weather-model temperature at step one.',
+  err:'Everything rides on knowing <i>P<sub>t</sub></i>, <i>G</i> and <i>R</i> — but these are engineering knowns, monitored constantly. The active journey starts <b>cleaner</b> than the passive one. It will not stay that way.' },
+
+{ id:'scatter', track:'shared', cat:'measured', tag:'measured · a tangled proxy', title:'The ground answers in riddles', purA:88, purS:88, sA:2.0, sS:0.020,
+  body:'The echo strength σ⁰ depends on the soil’s wetness (through its permittivity) — and, just as strongly, on its roughness. A wet smooth paddock and a dry ploughed one can return the same echo. The central ambiguity of active sensing is born at the surface itself.',
+  enters:'<b>Roughness</b> is the active journey’s T<sub>eff</sub> — an unmeasured co-driver of the signal.',
+  eq:'σ⁰ = <i>f</i>(<i>s</i>, <i>l</i>, ε(θ<sub>v</sub>), θ) <span class="small">— IEM / Oh surface-scattering models: <i>s</i> = rms height, <i>l</i> = correlation length</span>',
+  work:'At θ = 40°: raising θ<sub>v</sub> from 0.10 → 0.30 lifts σ⁰ by ≈ <b>4–6 dB</b>; roughening <i>s</i> from 0.5 → 2.5 cm lifts it by ≈ <b>5–8 dB</b>. The two effects are the same order — one echo, two explanations.',
+  err:'Roughness varies field-by-field and changes with every tillage pass, and nobody measures it at scale. Every retrieval must assume it, fit it, or difference it away — the choice defines the whole rest of the journey.' },
+
+{ id:'vegetation', track:'shared', cat:'contam', tag:'contamination · twice', title:'The canopy taxes the pulse twice', purA:74, purS:74, sA:1.5, sS:0.015,
+  body:'The pulse crosses the vegetation going down, scatters off the soil, and crosses it again coming up — attenuation counts double. The canopy also volume-scatters its own echo straight back, brightening the return with water that is in plants, not soil.',
+  enters:'<b>Two-way attenuation + canopy echo</b> — the Water Cloud model’s two terms.',
+  eq:'σ⁰ = σ⁰<sub>veg</sub> + γ²·σ⁰<sub>soil</sub> &nbsp;,&nbsp; γ² = e<sup>−2<i>B·V</i> sec θ</sup> <span class="small">— the 2 is the two-way path</span>',
+  work:'Wheat at peak biomass: γ² ≈ <b>0.5</b> — half the soil echo never makes it home. The canopy’s own term σ⁰<sub>veg</sub> can dominate entirely at full cover.',
+  err:'<i>B</i> and the vegetation water <i>V</i> come from optical indices or climatology. ASCAT will later exploit a clever trick — the incidence-angle slope’s seasonal cycle — but that trick assumes this year’s canopy behaves like the archive’s average year.' },
+
+{ id:'sigma0', track:'shared', cat:'infer', tag:'inference · calibration', title:'The echo becomes σ⁰ — by bookkeeping', purA:63, purS:63, sA:0.8, sS:0.005,
+  body:'Received watts mean nothing until the radar equation is inverted: divide out the transmit power, the antenna pattern, the range losses, the illuminated area. What remains — σ⁰, in decibels — is a property of the ground. In principle.',
+  enters:'σ⁰ is a <b>derived ratio</b>, only as good as the bookkeeping of gains and losses.',
+  eq:'σ⁰<sub>dB</sub> = 10 log₁₀'+fr('(4π)³<i>R</i>⁴ <i>P<sub>r</sub></i>','<i>P<sub>t</sub></i> <i>G</i>² λ² <i>A</i>')+' <span class="small">with internal calibration loops each pulse; ASCAT adds ground transponders</span>',
+  work:'ASCAT is one of the best-calibrated instruments in orbit: σ⁰ stable to ~<b>0.1–0.3 dB across years</b>, checked against transponders on the Hungarian plain. Sentinel-1 holds ≈ 1 dB absolute.',
+  err:'A dB of bias maps straight into moisture bias — but hold that thought: the change-detection retrievals ahead will <b>cancel any constant bias entirely</b>. Stability matters more than truth here.' },
+
+{ id:'incidence', track:'shared', cat:'infer', tag:'inference · normalisation', title:'One ground, many angles', purA:55, purS:55, sA:1.0, sS:0.008,
+  body:'A scatterometer sweeps each spot at 25°–65°; σ⁰ falls steeply with angle, so readings at different angles aren’t comparable until everything is normalised to a reference — 40° — using the local slope of σ⁰(θ). And that slope is itself the vegetation signal. Here the two instruments part ways: the screen is about to split.',
+  enters:'Normalisation <b>entangles</b> geometry with vegetation — then the journeys diverge.',
+  eq:'σ⁰(θ) ≈ σ⁰(40°) + σ′(40°)(θ−40°) + ½σ″(40°)(θ−40°)² <span class="small">— TU Wien normalisation; σ′ doubles as a vegetation tracker</span>',
+  work:'Typical bare-soil slope σ′ ≈ −0.2 dB/°; dense canopy flattens it toward −0.1. That difference is <i>used</i> — the slope’s seasonal cycle becomes ASCAT’s vegetation correction, measured not modelled.',
+  err:'Slope error leaks vegetation into moisture and back. Sentinel-1’s single sharp look sidesteps the sweep but needs a DEM to correct terrain geometry — swap one entanglement for another.' },
+
+{ id:'aperture', track:'fork', cat:'fork', tag:'the fork · aperture', title:'Real dish, or dish made of motion', purA:46, purS:42, sA:0.8, sS:0.005,
+  body:'How sharply you see is set by your antenna. ASCAT accepts the physics: a real aperture, kilometres-coarse. Sentinel-1 cheats it: fly the antenna along, record every echo’s phase, and synthesise a virtual dish kilometres long.',
+  a:{h:'Three fan beams, honest blur',
+     eq:'Δ<i>x<sub>az</sub></i> ≈ '+fr('<i>R</i>·λ','<i>D</i>')+' <span class="small">— real aperture</span>',
+     work:'820 km × 5.6 cm / ~3.3 m antenna → cells of <b>25–50 km</b>. But three fan beams (45°/90°/135° azimuth) see every spot <b>three times from three directions</b> — a σ⁰ triplet that lets slope and level be separated per overpass.',
+     err:'Sub-cell structure — a river flat inside a mallee cell — is averaged away irreversibly, exactly like SMAP’s footprint.'},
+  s:{h:'A 4-km antenna built from flight',
+     eq:'Δ<i>x<sub>az</sub></i> ≈ '+fr('<i>D</i>','2')+' <span class="small">— synthetic aperture, resolution <i>improves</i> as the antenna shrinks</span>',
+     work:'Matched-filtering ~1 s of Doppler history synthesises an aperture <i>L</i> = λR/(2Δx) ≈ <b>4 km</b> → <b>5–20 m</b> pixels from a 12-m antenna. The dish is made of motion and phase memory.',
+     err:'The synthesis assumes nothing on the ground moved during that second. Anything that did — water, wind-blown canopy — smears or ghosts.'},
+  enters:'Same physics budget, spent opposite ways: <b>ASCAT buys revisit and stability; Sentinel-1 buys resolution.</b>' },
+
+{ id:'noisechar', track:'fork', cat:'contam', tag:'the fork · noise', title:'Gentle wobble, or storm of speckle', purA:40, purS:33, sA:1.7, sS:0.025,
+  body:'Both echoes carry noise — but not the same kind. ASCAT’s is tame, additive, averaged down by design. Sentinel-1’s is speckle: wild multiplicative interference that is the price of coherent imaging.',
+  a:{h:'Kp — a civilised noise',
+     eq:'<i>K<sub>p</sub></i> = '+fr('ΔP','P')+' ≈ '+fr('1',sq('<i>N</i><sub>looks</sub>'))+' ≈ 3%',
+     work:'Radiometric resolution ~0.15–0.3 dB per cell — a few percent of saturation per overpass. Stable enough that day-to-day <i>changes</i> in σ⁰ are believable.',
+     err:'Kp is the floor under every daily moisture value; it shrinks only with more looks, i.e. more time.'},
+  s:{h:'Speckle — coherent chaos',
+     eq:'single look: '+fr('SD','mean')+' = 1 <span class="small">(exponential intensity)</span> ; <i>N</i>-look: '+fr('1',sq('<i>N</i>')),
+     work:'A single 10-m pixel wobbles by <b>±3 dB</b> — useless alone. Average ~100×100 pixels → a 1-km cell at ~0.3 dB. The resolution you advertise is not the resolution you can use.',
+     err:'Speckle is not sensor error — it is physics, the interference of a coherent wave. It cannot be calibrated away, only averaged, spending resolution to buy certainty.'},
+  enters:'<b>The advertised pixel and the trustworthy pixel are different sizes</b> — spectacularly so for SAR.' },
+
+{ id:'retrieval', track:'fork', cat:'box', tag:'the fork · retrieval', title:'No physics inversion — just memory', purA:30, purS:24, sA:2.2, sS:0.030,
+  body:'Here is the deepest divergence from the passive journey: neither track inverts a radiative-transfer model. ASCAT sidesteps physics with an archive — today’s echo is placed between the driest and wettest this spot has ever looked. Sentinel-1 is still deciding what it wants to be.',
+  a:{h:'TU Wien change detection',
+     eq:'<i>m<sub>s</sub></i>(t) = '+fr('σ⁰(40°,t) − σ⁰<sub>dry</sub>(doy)','σ⁰<sub>wet</sub>(doy) − σ⁰<sub>dry</sub>(doy)')+' × 100%',
+     work:'No dielectric model, no roughness parameter — <b>roughness and calibration bias cancel</b> in the differencing, because they’re constant. Output: <b>relative saturation, 0–100%</b>. A different unit, a different epistemic object.',
+     err:'The references embed the archive’s climate: a decade of gauges defines “wet”. Step outside the archive — new irrigation, a record drought — and the scale itself is wrong.'},
+  s:{h:'A retrieval still in beta',
+     eq:'Δσ⁰ ≈ α(θ)·(θ<sub>v</sub> − θ<sub>v,ref</sub>) <span class="small">— alpha approximation; or neural nets; or per-pixel change detection</span>',
+     work:'The Copernicus 1-km product uses change detection with <b>per-pixel references from a much shorter archive</b>; research retrievals fuse S-1 with ASCAT or SMAP to stay anchored.',
+     err:'Short archive + speckle → noisy references; algorithm maturity is the <b>dominant</b> error term. This is the youngest link in the whole collection.'},
+  enters:'ASCAT trades physics for <b>memory</b>; Sentinel-1 is still trading. Neither number means what SMAP’s means.' },
+
+{ id:'product', track:'fork', cat:'avg', tag:'the fork · the product', title:'What lands in your file', purA:26, purS:18, sA:1.5, sS:0.010,
+  body:'Two files, two philosophies. ASCAT: coarse, relative, near-daily, decades deep. Sentinel-1: sharp, gappy, young. Neither is m³/m³ until yet another dataset is imported.',
+  a:{h:'25 km · 0–100% · near-daily',
+     eq:'θ<sub>v</sub> = <i>m<sub>s</sub></i> × φ(soil map) <span class="small">— conversion to m³/m³ imports a porosity database</span>',
+     work:'Two MetOps → near-daily revisit; the archive reaches back through ERS to 1991 — the <b>longest active soil-moisture record on Earth</b>, which is why climate studies build on it.',
+     err:'Convert to absolute units and the soil map’s porosity error rides in — the same “one more silent dataset” pattern as the passive provenance graph.'},
+  s:{h:'1 km · gaps included',
+     eq:'<span class="small">revisit: 2–4 days (Europe) · 6–12 days elsewhere · masks: urban, water, dense canopy, frozen, mountains</span>',
+     work:'1-km cells that can see <b>individual paddocks</b> — irrigation scheduling territory, the scale farmers actually manage.',
+     err:'The masks and gaps are part of the product: the map is sharpest exactly where it is most often missing. One Sentinel-1 lost (as in 2022) and revisit halves.'},
+  enters:'The file’s units, gaps and archive depth are <b>decisions inherited from the aperture</b>, chosen years before you downloaded it.' },
+
+{ id:'budgets', track:'coda', cat:'box', tag:'coda · three kinds of doubt', title:'Three error budgets, three currencies', purA:26, purS:18, sA:null, sS:null,
+  body:'Line up all three journeys and the budgets don’t even share units. That is not sloppiness — it is what each instrument’s epistemics can honestly promise. Comparing them blind, as one “soil moisture accuracy” number, is how data gets misused.',
+  enters:'An error budget is a <b>contract</b> — and these are three different contracts.',
+  cmp:true },
+
+{ id:'together', track:'coda', cat:'measured', tag:'coda · complementarity', title:'Why the record needs all of them', purA:26, purS:18, sA:null, sS:null,
+  body:'SMAP fails in dense canopy; ASCAT fails outside its archive’s climate; Sentinel-1 fails where speckle and youth bite. But they fail in different places for different reasons — so merged records (ESA CCI blends passive and active) are more trustworthy than any single journey. The glow and the echo, asked together, lie less than either asked alone.',
+  enters:'Independent failure modes are worth more than any single instrument’s precision — <b>the quadrature lesson, applied to whole missions</b>.',
+  eq:'CCI merge: θ̂<sub>v</sub> = Σ<sub>k</sub> <i>w<sub>k</sub></i>·θ<sub>v,k</sub> &nbsp;,&nbsp; <i>w<sub>k</sub></i> ∝ 1/σ<sub>k</sub>² <span class="small">— after rescaling each record to a common climatology</span>',
+  work:'The ESA CCI record blends radiometers (SMMR → SMOS → SMAP) and scatterometers (ERS → ASCAT) into a 45-year archive — weighting each by its error where it is strong.',
+  err:'The merge inherits every journey’s pedigree at once — and adds a rescaling step of its own. There is no view from nowhere; there are only well-documented views from somewhere.' },
+];
+
+// error budgets (quadrature), per track — fork steps contribute per-track; nulls skip
+const CUMA=[],CUMS=[]; let a2=0,s2=0;
+STAGES.forEach(st=>{ if(st.sA)a2+=st.sA*st.sA; if(st.sS)s2+=st.sS*st.sS; CUMA.push(Math.sqrt(a2)); CUMS.push(Math.sqrt(s2)); });
+
+// ═══════════ step cards ═══════════
+const stepsEl=document.getElementById('steps');
+STAGES.forEach((s,i)=>{
+  const d=document.createElement('div');
+  d.className='step cat-'+s.cat; d.dataset.i=i;
+  let mid='';
+  if(s.track==='fork'){
+    mid='<div class="duo"><div class="d dA"><div class="dh">ASCAT</div>'+s.a.h+'</div><div class="d dS"><div class="dh">Sentinel-1</div>'+s.s.h+'</div></div>';
+  }
+  const sline = s.sA?'<div class="sline">σ: ASCAT ≈ '+s.sA.toFixed(1)+'% sat · S-1 ≈ '+s.sS.toFixed(3)+' m³/m³ · running: '+CUMA[i].toFixed(1)+'% / '+CUMS[i].toFixed(3)+'</div>':'';
+  d.innerHTML='<div class="card"><span class="tag">'+s.tag+'</span>'
+    +'<h3><span class="n">'+String(i+1).padStart(2,'0')+'</span>'+s.title+'</h3>'
+    +'<p>'+s.body+'</p>'+mid+'<div class="enters">'+s.enters+sline+'</div></div>';
+  stepsEl.appendChild(d);
+});
+
+let active=0, activeTarget=0, shownStage=-1;
+const steps=[...document.querySelectorAll('.step')];
+const io=new IntersectionObserver((ents)=>{
+  ents.forEach(e=>{ if(e.isIntersecting){ const i=+e.target.dataset.i; steps.forEach(s=>s.classList.toggle('on',+s.dataset.i===i)); activeTarget=i; } });
+},{rootMargin:'-45% 0px -45% 0px',threshold:0});
+steps.forEach(s=>io.observe(s));
+addEventListener('scroll',()=>{ const h=document.documentElement; const p=h.scrollTop/(h.scrollHeight-h.clientHeight); document.getElementById('bar').style.width=(p*100)+'%'; },{passive:true});
+
+// ═══════════ working panel ═══════════
+const CMP_TABLE='<table class="cmp"><tr><th></th><th style="color:#46c78a">SMAP (passive)</th><th style="color:var(--ascat)">ASCAT</th><th style="color:var(--s1)">Sentinel-1</th></tr>'
+ +'<tr><td>Quantity</td><td><b>absolute</b> m³/m³</td><td><b>relative</b> % saturation</td><td>m³/m³ (via young retrievals)</td></tr>'
+ +'<tr><td>Budget</td><td>σ ≈ <b>0.041</b> vs 0.040 requirement</td><td>σ ≈ <b>±4–5%</b> sat (+ porosity error if converted)</td><td>validation RMSD ≈ <b>0.05–0.10</b>; no formal requirement</td></tr>'
+ +'<tr><td>Dominant term</td><td>retrieval assumptions (τ, h, T<sub>eff</sub>)</td><td>reference curves (archive climate)</td><td>speckle + algorithm maturity</td></tr>'
+ +'<tr><td>Resolution / revisit</td><td>~40 km → 9 km · 2–3 d</td><td>25–50 km · ~daily</td><td>up to 1 km usable · 2–12 d, gappy</td></tr>'
+ +'<tr><td>Archive</td><td>2015–</td><td><b>1991–</b> (with ERS)</td><td>2014–</td></tr></table>';
+
+function workingHTML(s){
+  if(s.cmp) return '<div class="m-sec"><div class="mh h-eq">The comparison</div>'+CMP_TABLE+'</div>'
+    +'<div class="m-sec"><div class="mh h-err">How error is stated</div><div class="m-err">Three different <b>units</b>, three different <b>reference truths</b> (in-situ networks vs archives vs validation campaigns). Any tool that ingests these as interchangeable “accuracy” numbers has already made a category error.</div></div>';
+  if(s.track==='fork'){
+    return '<div class="wsplit">'
+      +'<div class="col"><div class="m-sec"><div class="mh h-a">ASCAT</div><div class="m-eq">'+s.a.eq+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-work">Worked</div><div class="m-work">'+s.a.work+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-err">Error</div><div class="m-err">'+s.a.err+'</div>'
+      +(s.sA?'<span class="sigchip">σ ≈ '+s.sA.toFixed(1)+'% sat</span>':'')+'</div></div>'
+      +'<div class="col"><div class="m-sec"><div class="mh h-s">Sentinel-1</div><div class="m-eq">'+s.s.eq+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-work">Worked</div><div class="m-work">'+s.s.work+'</div></div>'
+      +'<div class="m-sec"><div class="mh h-err">Error</div><div class="m-err">'+s.s.err+'</div>'
+      +(s.sS?'<span class="sigchip">σ ≈ '+s.sS.toFixed(3)+' m³/m³</span>':'')+'</div></div></div>';
+  }
+  const chip = s.sA?'<span class="sigchip">σ: ASCAT ≈ '+s.sA.toFixed(1)+'% sat · S-1 ≈ '+s.sS.toFixed(3)+' m³/m³ — both quadrature sums grow</span>':'';
+  return '<div class="m-sec"><div class="mh h-eq">The equation</div><div class="m-eq">'+s.eq+'</div></div>'
+    +'<div class="m-sec"><div class="mh h-work">Worked numbers</div><div class="m-work">'+s.work+'</div></div>'
+    +'<div class="m-sec"><div class="mh h-err">How error arises</div><div class="m-err">'+s.err+'</div>'+chip+'</div>';
+}
+function showWorking(i){
+  if(i===shownStage) return; shownStage=i;
+  const s=STAGES[i];
+  document.getElementById('wtitle').textContent='The working · step '+(i+1)+' — '+s.title;
+  document.getElementById('wbody').innerHTML=workingHTML(s);
+  const w=document.getElementById('working');
+  if(!w.dataset.userClosed && innerWidth>900) w.classList.remove('closed');
+}
+document.getElementById('working').addEventListener('click',function(e){
+  if(e.target.closest('.whead')) this.dataset.userClosed=this.classList.contains('closed')?'':'1';
+});
+showWorking(0);
+
+// ═══════════ HUD ═══════════
+let purA=95,purS=95,ebA=0,ebS=0;
+function updateHUD(idx){
+  const s=STAGES[idx], forked=idx>=5;
+  document.getElementById('hud').parentElement.classList.toggle('forked',forked);
+  document.getElementById('purAlab').innerHTML = forked?'<i style="color:var(--ascat)">ASCAT</i> echo is still…':'Echo is still…';
+  document.getElementById('ebAlab').innerHTML = forked?'<i style="color:var(--ascat)">ASCAT</i> σ (% sat)':'Error budget';
+  purA+=(s.purA-purA)*0.1; purS+=(s.purS-purS)*0.1;
+  document.getElementById('mfill').style.width=purA.toFixed(1)+'%';
+  document.getElementById('purv').textContent=Math.round(purA)+'%'+(forked?'':' measurement');
+  document.getElementById('mfillB').style.width=purS.toFixed(1)+'%';
+  document.getElementById('purvB').textContent=Math.round(purS)+'%';
+  document.getElementById('mcap').textContent = purA>75?'a controlled pulse, a physical echo — for now.'
+    : purA>55?'the surface and canopy have muddied the question.'
+    : purA>35?'normalised, averaged — the echo is becoming a statistic.'
+    : 'now mostly archive, averaging, and convention.';
+  ebA+=(CUMA[idx]-ebA)*0.1; ebS+=(CUMS[idx]-ebS)*0.1;
+  document.getElementById('ebv').textContent='σ ≈ '+ebA.toFixed(1)+'% sat';
+  document.getElementById('efill').style.width=Math.min(100,(ebA/5.5)*100)+'%';
+  document.getElementById('ebvB').textContent='σ ≈ '+ebS.toFixed(3);
+  document.getElementById('efillB').style.width=Math.min(100,(ebS/0.07)*100)+'%';
+  document.getElementById('stageno').textContent='step '+(idx+1)+' / '+STAGES.length+' · '+s.tag;
+}
+
+// ═══════════ 3D scene ═══════════
+const SAT_Y=120, OFF=1400; // diorama B offset on x
+const KFA=[ // camera A (left / shared)
+  {p:[ 34, 104, 66], l:[0, 82, 0]},       // 0 pulse — satellite firing down
+  {p:[ 28, 12, 36], l:[0,  3, 0]},        // 1 scattering — at the ground
+  {p:[ 40, 26, 52], l:[0, 10, 0]},        // 2 vegetation
+  {p:[ 12,126, 14], l:[0,119.5,0]},       // 3 σ⁰ calibration — satellite close
+  {p:[ 55, 70, 85], l:[0, 20, 0]},        // 4 incidence — three angle lines
+  {p:[ 48, 95, 75], l:[0, 40, 0]},        // 5 aperture fork — fan beams
+  {p:[ 30, 55, 60], l:[0,  8, 0]},        // 6 noise — transponder + footprint
+  {p:[ 36, 40, 58], l:[0, 22, 0]},        // 7 retrieval — dry/wet slabs
+  {p:[  0,150,105], l:[0,  0, 8]},        // 8 product — coarse grid top-down
+  {p:[ 60, 60, 95], l:[0, 45, 0]},        // 9 budgets — wide vista
+  {p:[ 40,100, 90], l:[0, 70, 0]},        // 10 together — sky vista
+];
+const KFB=[ // camera B (right / Sentinel-1 diorama) — used from idx 5
+  null,null,null,null,null,
+  {p:[OFF+42, 95, 70], l:[OFF, 45, 0]},   // 5 aperture — S1 + trail
+  {p:[OFF+30, 55, 60], l:[OFF,  8, 0]},   // 6 speckle footprint
+  {p:[OFF+36, 40, 58], l:[OFF, 22, 0]},   // 7 retrieval box
+  {p:[OFF+ 0,120, 90], l:[OFF,  0, 8]},   // 8 fine grid top-down
+  null,null,
+];
+const canvas=document.getElementById('cv');
+let app=null,camA=null,camB=null,PROPS={},labelPool=[];
+
+function ctex(w,h,draw){
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  draw(c.getContext('2d'),w,h);
+  const t=new pc.Texture(app.graphicsDevice,{width:w,height:h,format:pc.PIXELFORMAT_R8_G8_B8_A8,mipmaps:true});
+  t.setSource(c); t.minFilter=pc.FILTER_LINEAR_MIPMAP_LINEAR; t.magFilter=pc.FILTER_LINEAR;
+  t.addressU=pc.ADDRESS_CLAMP_TO_EDGE; t.addressV=pc.ADDRESS_CLAMP_TO_EDGE;
+  return t;
+}
+function mat(o){
+  const m=new pc.StandardMaterial();
+  if(o.color)m.diffuse.set(...o.color);
+  if(o.emissive)m.emissive.set(...o.emissive);
+  if(o.map)m.diffuseMap=o.map;
+  if(o.emissiveMap)m.emissiveMap=o.emissiveMap;
+  if(o.opacity!==undefined){m.opacity=o.opacity;m.blendType=pc.BLEND_NORMAL;m.depthWrite=false;}
+  if(o.opacityMap){m.opacityMap=o.opacityMap;m.blendType=pc.BLEND_NORMAL;m.depthWrite=false;}
+  if(o.cull!==undefined)m.cull=o.cull;
+  if(o.unlit)m.useLighting=false;
+  m.update(); return m;
+}
+function prim(type,m,pos,scl,rot){
+  const e=new pc.Entity(); e.addComponent('render',{type:type}); e.render.material=m;
+  if(pos)e.setLocalPosition(...pos); if(scl)e.setLocalScale(...scl); if(rot)e.setLocalEulerAngles(...rot);
+  app.root.addChild(e); return e;
+}
+function reg(name,ents,mats,on,base){
+  PROPS[name]={ents,mats,on,base:base===undefined?1:base,cur:0};
+}
+
+function buildScene(){
+  app=new pc.Application(canvas,{graphicsDeviceOptions:{antialias:true,alpha:false}});
+  app.setCanvasFillMode(pc.FILLMODE_NONE); app.setCanvasResolution(pc.RESOLUTION_AUTO); app.start();
+  const box=document.getElementById('stage3d');
+  function fit(){ app.resizeCanvas(box.clientWidth,box.clientHeight); }
+  new ResizeObserver(fit).observe(box); fit();
+  app.scene.ambientLight=new pc.Color(0.30,0.30,0.34);
+  try{ app.scene.fog=pc.FOG_LINEAR; app.scene.fogColor=new pc.Color(0.05,0.08,0.13); app.scene.fogStart=200; app.scene.fogEnd=700; }
+  catch(e){ try{ app.scene.fog.type='linear'; app.scene.fog.color=new pc.Color(0.05,0.08,0.13); app.scene.fog.start=200; app.scene.fog.end=700; }catch(_){} }
+
+  camA=new pc.Entity(); camA.addComponent('camera',{clearColor:new pc.Color(0.02,0.03,0.055),farClip:2600,fov:44,priority:0});
+  camA.setPosition(...KFA[0].p); app.root.addChild(camA);
+  camB=new pc.Entity(); camB.addComponent('camera',{clearColor:new pc.Color(0.02,0.03,0.055),farClip:2600,fov:44,priority:1});
+  camB.setPosition(OFF+40,90,70); camB.enabled=false; app.root.addChild(camB);
+
+  const sun=new pc.Entity(); sun.addComponent('light',{type:'directional',color:new pc.Color(1,0.85,0.65),intensity:1.5}); sun.setEulerAngles(38,150,0); app.root.addChild(sun);
+  const rim=new pc.Entity(); rim.addComponent('light',{type:'directional',color:new pc.Color(0.45,0.55,0.85),intensity:0.5}); rim.setEulerAngles(-25,-40,0); app.root.addChild(rim);
+
+  buildSky();
+  buildDiorama(0);        // shared / ASCAT
+  buildDiorama(OFF);      // Sentinel-1
+  buildBeams(); buildSatA(); buildSatB();
+  buildPulseBeads(); buildScatterFx(); buildIncidence(); buildFanBeams();
+  buildTransponder(); buildRefSlabs(); buildGrids(); buildSpecklePlane(); buildS1Box();
+  app.on('update',update);
+}
+
+function buildSky(){
+  const t=ctex(64,512,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'#04050c'); gr.addColorStop(0.35,'#0a1322'); gr.addColorStop(0.60,'#14263a');
+    gr.addColorStop(0.78,'#2c3a4c'); gr.addColorStop(0.9,'#4a4436'); gr.addColorStop(1,'#54452c');
+    g.fillStyle=gr; g.fillRect(0,0,w,h);
+    g.fillStyle='#fff';
+    for(let i=0;i<200;i++){ g.globalAlpha=0.25+Math.random()*0.55; g.fillRect(Math.random()*w,Math.random()*h*0.45,1.2,1.2); }
+    g.globalAlpha=1;
+  });
+  const m=mat({map:t,unlit:true,cull:pc.CULLFACE_FRONT,fog:false});
+  PROPS.__skyA=prim('sphere',m,[0,0,0],[1900,1900,1900]);
+  PROPS.__skyB=prim('sphere',m,[OFF,0,0],[1900,1900,1900]);
+}
+
+// wheat / mallee patchwork terrain
+function terrTex(){
+  return ctex(1024,1024,(g,w,h)=>{
+    g.fillStyle='#4a3c22'; g.fillRect(0,0,w,h);
+    let y=0;
+    while(y<h){ const rh=40+Math.random()*90; let x=0;
+      while(x<w){ const rw=60+Math.random()*140; const p=Math.random();
+        g.fillStyle=p<0.3?'#6b5a2e':p<0.55?'#7d6a33':p<0.75?'#57532c':p<0.9?'#4c4426':'#3f5232';
+        g.fillRect(x,y,rw-2,rh-2); x+=rw; } y+=rh; }
+    g.strokeStyle='rgba(30,24,14,.8)'; g.lineWidth=3;
+    for(let i=0;i<12;i++){ g.beginPath(); g.moveTo(Math.random()*w,0); g.bezierCurveTo(Math.random()*w,h*0.3,Math.random()*w,h*0.7,Math.random()*w,h); g.stroke(); }
+    g.strokeStyle='rgba(80,110,130,.55)'; g.lineWidth=14; g.beginPath();
+    g.moveTo(w*0.2,0); g.bezierCurveTo(w*0.3,h*0.4,w*0.1,h*0.6,w*0.25,h); g.stroke();
+  });
+}
+function buildDiorama(ox){
+  const N=64,S=460,pos=[],uvs=[],idx=[];
+  const hgt=(x,z)=>{ const r=Math.hypot(x,z);
+    let y=Math.sin(x*0.018)*Math.cos(z*0.016)*1.8+Math.sin(x*0.05+z*0.045)*0.6;
+    return y*Math.min(1,Math.max(0,(r-22)/40)); };
+  for(let j=0;j<=N;j++)for(let i=0;i<=N;i++){
+    const x=(i/N-0.5)*S, z=(j/N-0.5)*S;
+    pos.push(x+ox,hgt(x,z),z); uvs.push(i/N,1-j/N);
+  }
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){ const a=j*(N+1)+i,b=a+1,c=a+N+1,d=c+1; idx.push(a,c,b,b,c,d); }
+  const nrm=pc.calculateNormals(pos,idx);
+  const mesh=pc.createMesh(app.graphicsDevice,pos,{normals:nrm,uvs:uvs,indices:idx});
+  const mi=new pc.MeshInstance(mesh,mat({map:terrTex()}));
+  const e=new pc.Entity(); e.addComponent('render',{meshInstances:[mi]}); app.root.addChild(e);
+  // wheat stalks
+  const mW=mat({color:[0.55,0.46,0.20]}), mW2=mat({color:[0.42,0.40,0.18]});
+  for(let i=0;i<90;i++){
+    const a=Math.random()*Math.PI*2, r=14+Math.random()*90;
+    const x=Math.cos(a)*r, z=Math.sin(a)*r*0.8;
+    const hh=1.2+Math.random()*1.3;
+    prim('cylinder',Math.random()<0.5?mW:mW2,[ox+x,hh/2,z],[0.24,hh,0.24]);
+  }
+  // soil sample block at centre
+  const side=ctex(256,128,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'#7d6440'); gr.addColorStop(0.4,'#5c4830'); gr.addColorStop(1,'#3a2d1e');
+    g.fillStyle=gr; g.fillRect(0,0,w,h);
+    for(let i=0;i<70;i++){ g.fillStyle='rgba(28,20,12,'+(0.15+Math.random()*0.25)+')';
+      g.beginPath(); g.ellipse(Math.random()*w,Math.random()*h,2+Math.random()*5,1+Math.random()*3,0,0,7); g.fill(); }
+    for(let i=0;i<10;i++){ g.fillStyle='rgba(50,85,115,'+(0.25+Math.random()*0.25)+')';
+      g.beginPath(); g.ellipse(Math.random()*w,h*0.4+Math.random()*h*0.55,9+Math.random()*18,4+Math.random()*7,0,0,7); g.fill(); }
+  });
+  prim('box',mat({map:side}),[ox,0.2,0],[22,5.2,14]);
+  prim('plane',mat({color:[0.36,0.30,0.19]}),[ox,2.83,0],[22,1,14]);
+}
+
+// ── satellites ──
+let dishA=null,satBEnt=null,trailBits=[];
+function buildSatA(){ // MetOp-ish: long body, one big panel, three fan antennas
+  const root=new pc.Entity(); root.setPosition(0,SAT_Y,0); app.root.addChild(root); PROPS.__satA=root;
+  const mBody=mat({color:[0.78,0.82,0.86]}), mPanel=mat({color:[0.10,0.22,0.42],emissive:[0.04,0.10,0.22]}), mAnt=mat({color:[0.62,0.66,0.72]});
+  const b=new pc.Entity(); b.addComponent('render',{type:'box'}); b.render.material=mBody; b.setLocalScale(7,3,3); root.addChild(b);
+  const p=new pc.Entity(); p.addComponent('render',{type:'box'}); p.render.material=mPanel; p.setLocalScale(3,0.15,10); p.setLocalPosition(0,2,-6.5); root.addChild(p);
+  // three fan antennas (slats angled out)
+  [[-35,-2.2],[0,-2.6],[35,-2.2]].forEach(([yaw,dy],i)=>{
+    const a=new pc.Entity(); a.addComponent('render',{type:'box'}); a.render.material=mAnt;
+    a.setLocalScale(0.5,0.2,6.5); a.setLocalPosition((i-1)*2.2,dy,1.8);
+    a.setLocalEulerAngles(18,yaw,0); root.addChild(a);
+  });
+}
+function buildSatB(){ // Sentinel-1: body + big flat SAR panel
+  satBEnt=new pc.Entity(); satBEnt.setPosition(OFF,SAT_Y,0); app.root.addChild(satBEnt);
+  const mBody=mat({color:[0.78,0.82,0.86]}), mSAR=mat({color:[0.16,0.18,0.24],emissive:[0.08,0.05,0.16]}), mPanel=mat({color:[0.10,0.22,0.42],emissive:[0.04,0.10,0.22]});
+  const b=new pc.Entity(); b.addComponent('render',{type:'box'}); b.render.material=mBody; b.setLocalScale(3.4,3,3.4); satBEnt.addChild(b);
+  const sar=new pc.Entity(); sar.addComponent('render',{type:'box'}); sar.render.material=mSAR;
+  sar.setLocalScale(12.5,0.3,1.2); sar.setLocalPosition(0,-1.9,0); sar.setLocalEulerAngles(0,0,20); satBEnt.addChild(sar);
+  [-1,1].forEach(s=>{ const p=new pc.Entity(); p.addComponent('render',{type:'box'}); p.render.material=mPanel;
+    p.setLocalScale(7.5,0.14,2.6); p.setLocalPosition(s*5.4,1.6,0); p.setLocalEulerAngles(0,0,s*18); satBEnt.addChild(p); });
+  // synthetic-aperture trail: glowing bits along the flight track
+  const mTrail=mat({emissive:[0.72,0.55,1],color:[0,0,0],opacity:0});
+  for(let i=0;i<26;i++){
+    const e=new pc.Entity(); e.addComponent('render',{type:'box'}); e.render.material=mTrail;
+    e.setLocalScale(0.7,0.18,2.4); app.root.addChild(e);
+    trailBits.push(e);
+  }
+  reg('trail',trailBits,[mTrail],[5,6,7,8],0.8);
+}
+// ── beams down to ground ──
+function buildBeams(){
+  const mBm=mat({emissive:[1,0.75,0.35],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const bA=prim('cone',mBm,[0,SAT_Y/2-2,0],[52,SAT_Y-6,52]); bA.setLocalEulerAngles(180,0,0);
+  reg('beamA',[bA],[mBm],[0,1,2,3,4],0.10);
+  const mBmB=mat({emissive:[0.72,0.55,1],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const bB=prim('cone',mBmB,[OFF+0,SAT_Y/2-2,10],[26,SAT_Y-6,10]); bB.setLocalEulerAngles(180,0,0);
+  reg('beamB',[bB],[mBmB],[5,6,7,8],0.13);
+}
+// ── pulse & echo beads (per diorama) ──
+let beadsDown=[],beadsUp=[];
+function buildPulseBeads(){
+  const mDown=mat({emissive:[1,0.78,0.35],color:[0.2,0.15,0.05],opacity:0.95});
+  const mUp=mat({emissive:[0.35,0.85,0.8],color:[0.05,0.18,0.16],opacity:0.85});
+  [0,OFF].forEach(ox=>{
+    for(let i=0;i<20;i++){
+      const d=new pc.Entity(); d.addComponent('render',{type:'sphere'}); d.render.material=mDown; d.setLocalScale(0.9,0.9,0.9); app.root.addChild(d);
+      beadsDown.push({e:d,off:i/20,ox});
+      const u=new pc.Entity(); u.addComponent('render',{type:'sphere'}); u.render.material=mUp; u.setLocalScale(0.75,0.75,0.75); app.root.addChild(u);
+      beadsUp.push({e:u,off:i/20,ox});
+    }
+  });
+  PROPS.__mDown=mDown; PROPS.__mUp=mUp;
+}
+// ── surface scattering fx: specular lobe + diffuse ring ──
+function buildScatterFx(){
+  const mSpec=mat({emissive:[1,0.85,0.4],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const lobe=prim('cone',mSpec,[10,7,0],[7,14,7]); lobe.setLocalEulerAngles(0,0,-42);
+  const mDiff=mat({emissive:[0.4,0.8,0.75],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const dome=prim('sphere',mDiff,[0,3,0],[16,7,16]);
+  reg('scatter',[lobe,dome],[mSpec,mDiff],[1],0.22);
+}
+// ── incidence-angle lines ──
+function buildIncidence(){
+  const mL=mat({emissive:[0.98,0.72,0.30],color:[0,0,0],opacity:0});
+  const ents=[];
+  [[25,-30],[40,0],[55,30]].forEach(([th,gx])=>{
+    const e=new pc.Entity(); e.addComponent('render',{type:'cylinder'}); e.render.material=mL;
+    const top=new pc.Vec3(0,SAT_Y,0), bot=new pc.Vec3(gx,0,18);
+    const mid=new pc.Vec3().add2(top,bot).mulScalar(0.5);
+    e.setPosition(mid); e.lookAt(bot); e.rotateLocal(90,0,0);
+    e.setLocalScale(0.35,top.distance(bot),0.35);
+    app.root.addChild(e); ents.push(e);
+    const m2=prim('cylinder',mat({emissive:[0.98,0.72,0.3],color:[0,0,0],opacity:0.0}),[gx,0.6,18],[4,0.4,4]);
+    ents.push(m2);
+  });
+  reg('incidence',ents,[mL],[4],0.65);
+}
+// ── ASCAT fan-beam footprints (three swaths at azimuths) ──
+function buildFanBeams(){
+  const t=ctex(128,256,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'rgba(57,208,200,0)'); gr.addColorStop(0.5,'rgba(57,208,200,0.55)'); gr.addColorStop(1,'rgba(57,208,200,0)');
+    g.fillStyle=gr; g.fillRect(0,0,w,h);
+  });
+  const m=mat({emissiveMap:t,emissive:[1,1,1],opacityMap:t,opacity:0,unlit:true});
+  const ents=[];
+  [45,90,135].forEach(az=>{
+    const e=prim('plane',m,[0,1.1,0],[26,1,150]);
+    e.setLocalEulerAngles(0,az,0); ents.push(e);
+  });
+  reg('fans',ents,[m],[5,6,7],0.75);
+}
+// ── calibration transponder on ground ──
+function buildTransponder(){
+  const mT=mat({color:[0.75,0.75,0.8]});
+  const base=prim('cylinder',mT,[26,1.5,-20],[2,3,2]);
+  const mDish=mat({emissive:[0.95,0.7,0.3],color:[0.4,0.3,0.1],opacity:0});
+  const dish=prim('cone',mDish,[26,4,-20],[3.4,2.4,3.4]); dish.setLocalEulerAngles(50,0,0);
+  reg('transponder',[dish],[mDish],[3,6],0.9);
+  PROPS.__transBase=base;
+}
+// ── dry/wet reference slabs (change detection) ──
+function buildRefSlabs(){
+  const mDry=mat({emissive:[0.85,0.5,0.25],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const mWet=mat({emissive:[0.25,0.55,0.95],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const mNow=mat({emissive:[0.35,0.95,0.6],color:[0,0,0],opacity:0});
+  const dry=prim('plane',mDry,[0,8,0],[42,1,30]);
+  const wet=prim('plane',mWet,[0,34,0],[42,1,30]);
+  const now=prim('sphere',mNow,[0,20,0],[2.4,2.4,2.4]);
+  reg('refslabs',[dry,wet,now],[mDry,mWet,mNow],[7],0.4);
+  PROPS.__nowOrb=now;
+}
+// ── product grids: coarse (A) & fine gappy (B) ──
+let coarseTiles=[],fineTiles=[];
+function buildGrids(){
+  const tA=ctex(128,128,(g,w,h)=>{
+    g.fillStyle='rgba(57,208,200,0.12)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(57,208,200,0.95)'; g.lineWidth=7; g.strokeRect(4,4,w-8,h-8);
+  });
+  const mA=mat({emissiveMap:tA,emissive:[1,1,1],opacityMap:tA,opacity:0,unlit:true});
+  for(let i=-1;i<=1;i++)for(let j=-1;j<=1;j++){
+    coarseTiles.push(prim('plane',mA,[i*42,1.5,j*42],[40,1,40]));
+  }
+  reg('gridA',coarseTiles,[mA],[8],0.85);
+  const tB=ctex(128,128,(g,w,h)=>{
+    g.fillStyle='rgba(185,140,255,0.14)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(185,140,255,0.95)'; g.lineWidth=5; g.strokeRect(3,3,w-6,h-6);
+  });
+  const mB=mat({emissiveMap:tB,emissive:[1,1,1],opacityMap:tB,opacity:0,unlit:true});
+  for(let i=-5;i<=5;i++)for(let j=-5;j<=5;j++){
+    if(Math.random()<0.28) continue; // gaps are part of the product
+    fineTiles.push(prim('plane',mB,[OFF+i*11,1.5,j*11],[10,1,10]));
+  }
+  reg('gridB',fineTiles,[mB],[8],0.85);
+}
+// ── speckle plane (S1) ──
+let speckCtx=null,speckTex=null,speckT=0,speckCanvas=null;
+function buildSpecklePlane(){
+  speckCanvas=document.createElement('canvas'); speckCanvas.width=128; speckCanvas.height=128;
+  speckCtx=speckCanvas.getContext('2d'); drawSpeckle();
+  speckTex=new pc.Texture(app.graphicsDevice,{width:128,height:128,format:pc.PIXELFORMAT_R8_G8_B8_A8,mipmaps:false});
+  speckTex.setSource(speckCanvas);
+  const m=mat({emissiveMap:speckTex,emissive:[1,1,1],color:[0,0,0],opacity:0,unlit:true});
+  const e=prim('plane',m,[OFF,1.4,10],[46,1,30]);
+  reg('speckle',[e],[m],[5,6],0.85);
+}
+function drawSpeckle(){
+  const g=speckCtx,d=g.createImageData(128,128);
+  for(let i=0;i<d.data.length;i+=4){
+    const v=Math.min(255,-Math.log(Math.random())*90); // exponential intensity
+    d.data[i]=v*0.75; d.data[i+1]=v*0.6; d.data[i+2]=v; d.data[i+3]=255;
+  }
+  g.putImageData(d,0,0);
+}
+// ── S1 retrieval box (hazard-striped: in beta) ──
+function buildS1Box(){
+  const t=ctex(256,128,(g,w,h)=>{
+    g.fillStyle='rgba(185,140,255,0.12)'; g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(185,140,255,0.9)'; g.lineWidth=6; g.strokeRect(3,3,w-6,h-6);
+    g.strokeStyle='rgba(255,210,90,0.8)'; g.lineWidth=7;
+    for(let x=-h;x<w;x+=28){ g.beginPath(); g.moveTo(x,h); g.lineTo(x+h,0); g.stroke(); }
+  });
+  const m=mat({emissiveMap:t,emissive:[0.9,0.9,0.9],color:[0,0,0],opacity:0,cull:pc.CULLFACE_NONE});
+  const e=prim('box',m,[OFF,22,0],[16,9,11]);
+  reg('s1box',[e],[m],[7],0.8);
+}
+
+// ═══════════ labels ═══════════
+const L=[
+  [ {c:'A',w:[0,SAT_Y-8,0], t:'a kW shout — C-band, λ ≈ 5.6 cm', col:'#ffd27a'} ],
+  [ {c:'A',w:[10,13,0], t:'specular lobe — roughness steals the echo', col:'#f2b24a'},
+    {c:'A',w:[-9,5,6], t:'diffuse return — what the radar catches', col:'#39d0c8'} ],
+  [ {c:'A',w:[8,3.5,7], t:'γ² = two-way canopy tax', col:'#ef6a5a'} ],
+  [ {c:'A',w:[3,SAT_Y-4,2], t:'internal calibration every pulse', col:'#f2b24a'},
+    {c:'A',w:[26,6,-20], t:'ground transponder — truth by appointment', col:'#f2b24a'} ],
+  [ {c:'A',w:[-30,4,18], t:'25°', col:'#f2b24a'},{c:'A',w:[0,4,18], t:'40° — the reference', col:'#f2b24a'},{c:'A',w:[30,4,18], t:'55°', col:'#f2b24a'} ],
+  [ {c:'A',w:[0,4,-55], t:'three fan beams — a σ⁰ triplet', col:'#39d0c8'},
+    {c:'B',w:[OFF,SAT_Y-6,12], t:'the antenna is the flight path', col:'#b98cff'} ],
+  [ {c:'A',w:[26,7,-20], t:'Kp ≈ 3% — noise with manners', col:'#39d0c8'},
+    {c:'B',w:[OFF,4,10], t:'speckle — ±3 dB per pixel', col:'#b98cff'} ],
+  [ {c:'A',w:[-16,36,0], t:'σ⁰wet — the wettest this spot ever looked', col:'#5599ee'},
+    {c:'A',w:[-16,10,0], t:'σ⁰dry — the driest', col:'#e0854a'},
+    {c:'B',w:[OFF,28,0], t:'retrieval still in beta', col:'#b98cff'} ],
+  [ {c:'A',w:[44,4,44], t:'25-km cells · % saturation · near-daily', col:'#39d0c8'},
+    {c:'B',w:[OFF+30,4,30], t:'1-km cells — gaps included', col:'#b98cff'} ],
+  [ {c:'A',w:[0,SAT_Y-10,0], t:'three budgets, three currencies', col:'#e368b8'} ],
+  [ {c:'A',w:[0,SAT_Y-14,0], t:'merged records: independent failures, shared truth', col:'#46c78a'} ],
+];
+function ensureLabels(n){
+  const holder=document.getElementById('labels');
+  while(labelPool.length<n){ const d=document.createElement('div'); d.className='lab3d'; holder.appendChild(d); labelPool.push(d); }
+}
+// manual projection so viewport rects are honoured
+const _m4=(typeof pc!=='undefined')?new pc.Mat4():null, _v4=(typeof pc!=='undefined')?new pc.Vec4():null;
+function project(camEnt,wx,wy,wz,rectX,rectW){
+  const rect=document.getElementById('stage3d').getBoundingClientRect();
+  try{
+    _m4.copy(camEnt.camera.projectionMatrix);
+    const inv=camEnt.getWorldTransform().clone().invert();
+    _m4.mul(inv);
+    _v4.set(wx,wy,wz,1);
+    _m4.transformVec4(_v4,_v4);
+    if(_v4.w<=0) return null;
+    const nx=_v4.x/_v4.w, ny=_v4.y/_v4.w;
+    if(nx<-1.15||nx>1.15||ny<-1.15||ny>1.15) return null;
+    return { x:(rectX+(nx*0.5+0.5)*rectW)*rect.width, y:(1-(ny*0.5+0.5))*rect.height };
+  }catch(e){ return null; }
+}
+
+// ═══════════ update ═══════════
+let tGlob=0, split=0;
+const sV=(typeof pc!=='undefined')?new pc.Vec3():null, sV2=(typeof pc!=='undefined')?new pc.Vec3():null;
+function lerpKF(kfs,i0,i1,f,out){ const A=kfs[i0]||kfs[i1], B=kfs[i1]||kfs[i0];
+  out.p=[A.p[0]+(B.p[0]-A.p[0])*f, A.p[1]+(B.p[1]-A.p[1])*f, A.p[2]+(B.p[2]-A.p[2])*f];
+  out.l=[A.l[0]+(B.l[0]-A.l[0])*f, A.l[1]+(B.l[1]-A.l[1])*f, A.l[2]+(B.l[2]-A.l[2])*f]; }
+const _kf={p:[0,0,0],l:[0,0,0]};
+function update(dt){
+  tGlob+=dt; const t=tGlob;
+  active += (activeTarget-active)*Math.min(1,dt*4.5);
+  const idx=Math.max(0,Math.min(STAGES.length-1,Math.round(active)));
+  const i0=Math.floor(Math.max(0,Math.min(STAGES.length-1.001,active)));
+  const i1=Math.min(KFA.length-1,i0+1), f=Math.max(0,Math.min(1,active-i0));
+  const sm=f*f*(3-2*f);
+  // split factor
+  const splitTarget=(idx>=5&&idx<=8)?1:0;
+  split += (splitTarget-split)*Math.min(1,dt*3);
+  const sp=Math.max(0,Math.min(1,split));
+  // camera A
+  lerpKF(KFA,i0,i1,sm,_kf);
+  sV.set(_kf.p[0]+Math.sin(t*0.22)*0.8,_kf.p[1]+Math.sin(t*0.3)*0.5,_kf.p[2]);
+  camA.setPosition(sV); sV2.set(..._kf.l); camA.lookAt(sV2);
+  const wA=1-0.5*sp;
+  camA.camera.rect=new pc.Vec4(0,0,Math.max(0.02,wA),1);
+  // camera B
+  if(sp>0.02){
+    camB.enabled=true;
+    const kb0=KFB[i0]?i0:5, kb1=KFB[i1]?i1:kb0;
+    lerpKF(KFB,kb0,kb1,sm,_kf);
+    sV.set(_kf.p[0],_kf.p[1]+Math.sin(t*0.27)*0.5,_kf.p[2]+Math.sin(t*0.2)*0.8);
+    camB.setPosition(sV); sV2.set(..._kf.l); camB.lookAt(sV2);
+    camB.camera.rect=new pc.Vec4(wA,0,Math.max(0.02,0.5*sp),1);
+  } else camB.enabled=false;
+  // divider + banners
+  const rect=document.getElementById('stage3d').getBoundingClientRect();
+  const div=document.getElementById('divider');
+  div.style.opacity=sp>0.5?1:0; div.style.left=(wA*100)+'%';
+  document.getElementById('banA').style.opacity=sp>0.5?1:0;
+  document.getElementById('banA').style.left=(wA*50)+'%';
+  document.getElementById('banB').style.opacity=sp>0.5?1:0;
+  document.getElementById('banB').style.left=((wA+0.25*sp)*100)+'%';
+
+  // props fade
+  for(const k in PROPS){ if(k.startsWith('__'))continue; const p=PROPS[k];
+    const target=p.on.includes(idx)?p.base:0;
+    p.cur += (target-p.cur)*Math.min(1,dt*4);
+    p.mats.forEach(m=>{ m.opacity=p.cur; m.update(); });
+    p.ents.forEach(e=>{ e.enabled=p.cur>0.015; });
+  }
+  // pulse beads: down then echo up (two-way!)
+  beadsDown.forEach(b=>{
+    const y=SAT_Y-((t*46+b.off*SAT_Y)%SAT_Y);
+    b.e.setPosition(b.ox+Math.sin(y*0.08)*0.6,y,Math.cos(y*0.07)*0.6);
+  });
+  beadsUp.forEach(b=>{
+    const y=((t*34+b.off*SAT_Y)%SAT_Y);
+    b.e.setPosition(b.ox+3+Math.sin(y*0.1)*0.9,y,2+Math.cos(y*0.09)*0.9);
+  });
+  const pur=STAGES[idx].purA/100;
+  PROPS.__mUp.opacity=0.25+0.6*pur; PROPS.__mUp.update();
+  // S1 flies + trail
+  if(satBEnt){
+    const z=((t*9)%140)-70;
+    satBEnt.setPosition(OFF,SAT_Y,z);
+    trailBits.forEach((e,i)=>{ e.setPosition(OFF,SAT_Y-1,z-3-i*2.6); });
+  }
+  // speckle refresh
+  if(idx===5||idx===6){ speckT+=dt; if(speckT>0.12){ speckT=0; drawSpeckle(); speckTex.setSource(speckCanvas); } }
+  // change-detection orb bobs between dry & wet
+  if(PROPS.__nowOrb){ PROPS.__nowOrb.setPosition(0,21+Math.sin(t*0.9)*9,0); }
+  // sky follows
+  PROPS.__skyA.setPosition(camA.getPosition());
+  if(camB.enabled) PROPS.__skyB.setPosition(camB.getPosition());
+
+  // labels
+  const defs=L[idx]||[];
+  ensureLabels(Math.max(defs.length,labelPool.length));
+  const wAr=1-0.5*sp;
+  labelPool.forEach((d,k)=>{
+    const def=defs[k];
+    if(!def){ d.style.opacity=0; return; }
+    if(def.c==='B'&&sp<0.5){ d.style.opacity=0; return; }
+    const pt = def.c==='B'
+      ? project(camB,def.w[0],def.w[1],def.w[2],wAr,0.5*sp)
+      : project(camA,def.w[0],def.w[1],def.w[2],0,wAr);
+    if(!pt){ d.style.opacity=0; return; }
+    d.textContent=def.t; d.style.borderColor=def.col; d.style.opacity=1;
+    d.style.left=pt.x+'px'; d.style.top=pt.y+'px';
+  });
+
+  updateHUD(idx); showWorking(idx);
+}
+
+// ═══════════ boot ═══════════
+if(window.__noPC || typeof pc==='undefined'){
+  document.getElementById('fallback').style.display='flex';
+  (function loop(){ updateHUD(Math.round(activeTarget)); showWorking(Math.round(activeTarget)); requestAnimationFrame(loop); })();
+}else{
+  try{ buildScene(); }
+  catch(err){ console.error(err); document.getElementById('fallback').style.display='flex';
+    (function loop(){ updateHUD(Math.round(activeTarget)); showWorking(Math.round(activeTarget)); requestAnimationFrame(loop); })(); }
+}
+</script>
+<div id="kaswari-credit" style="position:fixed;bottom:6px;right:11px;font-size:10.5px;letter-spacing:.3px;color:rgba(185,208,228,.6);z-index:9999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none">© Kaswari AgTech</div>
+</body>
+</html>

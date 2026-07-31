@@ -18,6 +18,7 @@ step, no dependencies). Open `index.html` to start.
 | 02 | `soil-moisture-ayutthaya.html` | The same stack over Ayutthaya, Thailand (3D) |
 | 03 | `soil-moisture-annotated.html` | The retrieval chain, annotated for where error enters (3D) |
 | 04 | `soil-moisture-capture-journey.html` | The signal's journey in 3D — equations, worked SMAP numbers, and a live error budget per step |
+| 04b | `soil-moisture-echo-journey.html` | The Echo's Journey — ASCAT vs Sentinel-1 in split-screen 3D, with per-track maths and error budgets |
 | 05 | `soil-moisture-orbit-swath.html` | Orbit & swath capture geometry |
 | 06 | `soil-moisture-provenance.html` | The provenance DAG from photon to pixel |
 | 07 | `soil-moisture-uncertainty-waterfall.html` | A quantitative uncertainty waterfall |
